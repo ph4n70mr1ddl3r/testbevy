@@ -1,3 +1,4 @@
+use rand::seq::SliceRandom;
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -42,11 +43,9 @@ impl Card {
             suit: Suit::Hearts,
         }
     }
-}
 
-impl fmt::Display for Card {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let rank_str = match self.rank {
+    pub fn rank_str(&self) -> &'static str {
+        match self.rank {
             Rank::Two => "2",
             Rank::Three => "3",
             Rank::Four => "4",
@@ -60,14 +59,26 @@ impl fmt::Display for Card {
             Rank::Queen => "Q",
             Rank::King => "K",
             Rank::Ace => "A",
-        };
-        let suit_str = match self.suit {
+        }
+    }
+
+    pub fn suit_str(&self) -> &'static str {
+        match self.suit {
             Suit::Hearts => "♥",
             Suit::Diamonds => "♦",
             Suit::Clubs => "♣",
             Suit::Spades => "♠",
-        };
-        write!(f, "{}{}", rank_str, suit_str)
+        }
+    }
+
+    pub fn is_red(&self) -> bool {
+        matches!(self.suit, Suit::Hearts | Suit::Diamonds)
+    }
+}
+
+impl fmt::Display for Card {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}{}", self.rank_str(), self.suit_str())
     }
 }
 
@@ -81,13 +92,24 @@ impl Deck {
         let mut cards = Vec::new();
         for &suit in &[Suit::Hearts, Suit::Diamonds, Suit::Clubs, Suit::Spades] {
             for &rank in &[
-                Rank::Two, Rank::Three, Rank::Four, Rank::Five,
-                Rank::Six, Rank::Seven, Rank::Eight, Rank::Nine,
-                Rank::Ten, Rank::Jack, Rank::Queen, Rank::King, Rank::Ace,
+                Rank::Two,
+                Rank::Three,
+                Rank::Four,
+                Rank::Five,
+                Rank::Six,
+                Rank::Seven,
+                Rank::Eight,
+                Rank::Nine,
+                Rank::Ten,
+                Rank::Jack,
+                Rank::Queen,
+                Rank::King,
+                Rank::Ace,
             ] {
                 cards.push(Card::new(rank, suit));
             }
         }
+        cards.shuffle(&mut rand::thread_rng());
         Deck { cards }
     }
 
