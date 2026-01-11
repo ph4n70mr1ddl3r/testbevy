@@ -186,21 +186,30 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
 
     cards.sort_by_key(|c| c.rank);
 
-    let is_flush = cards
-        .windows(5)
-        .any(|window| window.iter().all(|c| c.suit == window[0].suit));
+    let suit_counts: Vec<(Suit, usize)> = {
+        let mut counts: Vec<(Suit, usize)> = Vec::new();
+        for c in &cards {
+            if let Some(pos) = counts.iter().position(|(suit, _)| *suit == c.suit) {
+                counts[pos].1 += 1;
+            } else {
+                counts.push((c.suit, 1));
+            }
+        }
+        counts
+    };
+    let is_flush = suit_counts.iter().any(|(_, count)| *count >= 5);
 
     let ranks: Vec<Rank> = cards.iter().map(|c| c.rank).collect();
     let mut unique_ranks: Vec<Rank> = ranks.clone();
     unique_ranks.dedup();
 
-    let is_straight = if unique_ranks.len() >= 5 {
-        let has_ace_low = unique_ranks.contains(&Rank::Two) && unique_ranks.contains(&Rank::Ace);
-        let has_wheel = has_ace_low
-            && unique_ranks.contains(&Rank::Three)
-            && unique_ranks.contains(&Rank::Four)
-            && unique_ranks.contains(&Rank::Five);
+    let has_wheel = unique_ranks.contains(&Rank::Two)
+        && unique_ranks.contains(&Rank::Three)
+        && unique_ranks.contains(&Rank::Four)
+        && unique_ranks.contains(&Rank::Five)
+        && unique_ranks.contains(&Rank::Ace);
 
+    let is_straight = if unique_ranks.len() >= 5 {
         if has_wheel {
             true
         } else {
@@ -247,12 +256,28 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
         .collect();
 
     if is_flush && is_straight {
-        let has_wheel =
-            unique_ranks == vec![Rank::Two, Rank::Three, Rank::Four, Rank::Five, Rank::Ace];
+        let flush_suit = suit_counts.iter().find(|(_, count)| *count >= 5).unwrap().0;
+        let flush_cards: Vec<Card> = cards
+            .iter()
+            .filter(|c| c.suit == flush_suit)
+            .cloned()
+            .collect();
+        let flush_ranks: Vec<Rank> = flush_cards.iter().map(|c| c.rank).collect();
+        let mut flush_unique: Vec<Rank> = flush_ranks.clone();
+        flush_unique.dedup();
+
         let straight_high = if has_wheel {
             Rank::Five
         } else {
-            unique_ranks.iter().max().copied().unwrap_or(Rank::Ace)
+            let mut sf_high = Rank::Two;
+            for i in 0..=flush_unique.len() - 5 {
+                let window = &flush_unique[i..i + 5];
+                let is_consecutive = window.windows(2).all(|w| (w[1] as u8) - (w[0] as u8) == 1);
+                if is_consecutive {
+                    sf_high = window[4];
+                }
+            }
+            sf_high
         };
         return EvaluatedHand {
             hand_rank: HandRank::StraightFlush,
@@ -295,12 +320,18 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
     }
 
     if is_straight {
-        let has_wheel =
-            unique_ranks == vec![Rank::Two, Rank::Three, Rank::Four, Rank::Five, Rank::Ace];
         let straight_high = if has_wheel {
             Rank::Five
         } else {
-            unique_ranks.iter().max().copied().unwrap_or(Rank::Ace)
+            let mut straight_high = Rank::Two;
+            for i in 0..=unique_ranks.len() - 5 {
+                let window = &unique_ranks[i..i + 5];
+                let is_consecutive = window.windows(2).all(|w| (w[1] as u8) - (w[0] as u8) == 1);
+                if is_consecutive {
+                    straight_high = window[4];
+                }
+            }
+            straight_high
         };
         return EvaluatedHand {
             hand_rank: HandRank::Straight,
@@ -393,5 +424,205 @@ pub fn determine_winner(
         (1, true)
     } else {
         (-1, false)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn card(rank: Rank, suit: Suit) -> Card {
+        Card::new(rank, suit)
+    }
+
+    #[test]
+    fn test_high_card() {
+        let hand = [
+            card(Rank::Ace, Suit::Hearts),
+            card(Rank::King, Suit::Spades),
+            card(Rank::Ten, Suit::Diamonds),
+            card(Rank::Five, Suit::Clubs),
+            card(Rank::Three, Suit::Hearts),
+            card(Rank::Two, Suit::Spades),
+            card(Rank::Eight, Suit::Diamonds),
+        ];
+        let eval = evaluate_hand(&hand);
+        assert_eq!(eval.hand_rank, HandRank::HighCard);
+        assert_eq!(eval.primary_values[0], Rank::Ace);
+    }
+
+    #[test]
+    fn test_pair() {
+        let hand = [
+            card(Rank::Ace, Suit::Hearts),
+            card(Rank::Ace, Suit::Spades),
+            card(Rank::King, Suit::Diamonds),
+            card(Rank::Ten, Suit::Clubs),
+            card(Rank::Five, Suit::Hearts),
+            card(Rank::Two, Suit::Spades),
+            card(Rank::Eight, Suit::Diamonds),
+        ];
+        let eval = evaluate_hand(&hand);
+        assert_eq!(eval.hand_rank, HandRank::Pair);
+        assert_eq!(eval.primary_values[0], Rank::Ace);
+    }
+
+    #[test]
+    fn test_two_pair() {
+        let hand = [
+            card(Rank::Ace, Suit::Hearts),
+            card(Rank::Ace, Suit::Spades),
+            card(Rank::King, Suit::Diamonds),
+            card(Rank::King, Suit::Clubs),
+            card(Rank::Ten, Suit::Hearts),
+            card(Rank::Two, Suit::Spades),
+            card(Rank::Eight, Suit::Diamonds),
+        ];
+        let eval = evaluate_hand(&hand);
+        assert_eq!(eval.hand_rank, HandRank::TwoPair);
+    }
+
+    #[test]
+    fn test_three_of_a_kind() {
+        let hand = [
+            card(Rank::Ace, Suit::Hearts),
+            card(Rank::Ace, Suit::Spades),
+            card(Rank::Ace, Suit::Diamonds),
+            card(Rank::King, Suit::Clubs),
+            card(Rank::Ten, Suit::Hearts),
+            card(Rank::Two, Suit::Spades),
+            card(Rank::Eight, Suit::Diamonds),
+        ];
+        let eval = evaluate_hand(&hand);
+        assert_eq!(eval.hand_rank, HandRank::ThreeOfAKind);
+        assert_eq!(eval.primary_values[0], Rank::Ace);
+    }
+
+    #[test]
+    fn test_flush() {
+        let hand = [
+            card(Rank::Ace, Suit::Hearts),
+            card(Rank::King, Suit::Hearts),
+            card(Rank::Ten, Suit::Hearts),
+            card(Rank::Five, Suit::Hearts),
+            card(Rank::Three, Suit::Hearts),
+            card(Rank::Two, Suit::Spades),
+            card(Rank::Eight, Suit::Diamonds),
+        ];
+        let eval = evaluate_hand(&hand);
+        assert_eq!(eval.hand_rank, HandRank::Flush);
+        assert_eq!(eval.primary_values[0], Rank::Ace);
+    }
+
+    #[test]
+    fn test_full_house() {
+        let hand = [
+            card(Rank::Ace, Suit::Hearts),
+            card(Rank::Ace, Suit::Spades),
+            card(Rank::Ace, Suit::Diamonds),
+            card(Rank::King, Suit::Clubs),
+            card(Rank::King, Suit::Hearts),
+            card(Rank::Two, Suit::Spades),
+            card(Rank::Eight, Suit::Diamonds),
+        ];
+        let eval = evaluate_hand(&hand);
+        assert_eq!(eval.hand_rank, HandRank::FullHouse);
+        assert_eq!(eval.primary_values[0], Rank::Ace);
+        assert_eq!(eval.primary_values[1], Rank::King);
+    }
+
+    #[test]
+    fn test_four_of_a_kind() {
+        let hand = [
+            card(Rank::Ace, Suit::Hearts),
+            card(Rank::Ace, Suit::Spades),
+            card(Rank::Ace, Suit::Diamonds),
+            card(Rank::Ace, Suit::Clubs),
+            card(Rank::King, Suit::Hearts),
+            card(Rank::Two, Suit::Spades),
+            card(Rank::Eight, Suit::Diamonds),
+        ];
+        let eval = evaluate_hand(&hand);
+        assert_eq!(eval.hand_rank, HandRank::FourOfAKind);
+        assert_eq!(eval.primary_values[0], Rank::Ace);
+    }
+
+    #[test]
+    fn test_straight_flush() {
+        let hand = vec![
+            card(Rank::Seven, Suit::Hearts),
+            card(Rank::Three, Suit::Hearts),
+            card(Rank::Four, Suit::Hearts),
+            card(Rank::Five, Suit::Hearts),
+            card(Rank::Six, Suit::Hearts),
+            card(Rank::King, Suit::Spades),
+            card(Rank::Eight, Suit::Diamonds),
+        ];
+        let eval = evaluate_hand(&hand);
+        assert_eq!(eval.hand_rank, HandRank::StraightFlush);
+        assert_eq!(eval.primary_values[0], Rank::Seven);
+    }
+
+    #[test]
+    fn test_wheel_straight_flush() {
+        let hand = vec![
+            card(Rank::Ace, Suit::Hearts),
+            card(Rank::Two, Suit::Spades),
+            card(Rank::Three, Suit::Hearts),
+            card(Rank::Four, Suit::Hearts),
+            card(Rank::Five, Suit::Hearts),
+            card(Rank::King, Suit::Spades),
+            card(Rank::Eight, Suit::Diamonds),
+        ];
+        let eval = evaluate_hand(&hand);
+        // This is a straight (wheel), not a straight flush (only 4 hearts)
+        assert_eq!(eval.hand_rank, HandRank::Straight);
+        assert_eq!(eval.primary_values[0], Rank::Five);
+    }
+
+    #[test]
+    fn test_determine_winner() {
+        let p1 = [
+            card(Rank::Ace, Suit::Hearts),
+            card(Rank::King, Suit::Spades),
+        ];
+        let p2 = [
+            card(Rank::King, Suit::Hearts),
+            card(Rank::Queen, Suit::Spades),
+        ];
+        let community = [
+            card(Rank::Ten, Suit::Diamonds),
+            card(Rank::Jack, Suit::Clubs),
+            card(Rank::Two, Suit::Hearts),
+            card(Rank::Five, Suit::Spades),
+            card(Rank::Eight, Suit::Diamonds),
+        ];
+
+        let result = determine_winner(&p1, &p2, &community);
+        assert_eq!(result.0, 0);
+        assert!(result.1);
+    }
+
+    #[test]
+    fn test_determine_winner_split() {
+        let p1 = [
+            card(Rank::Ace, Suit::Hearts),
+            card(Rank::King, Suit::Spades),
+        ];
+        let p2 = [
+            card(Rank::Ace, Suit::Spades),
+            card(Rank::King, Suit::Hearts),
+        ];
+        let community = [
+            card(Rank::Ten, Suit::Diamonds),
+            card(Rank::Jack, Suit::Clubs),
+            card(Rank::Two, Suit::Hearts),
+            card(Rank::Five, Suit::Spades),
+            card(Rank::Eight, Suit::Diamonds),
+        ];
+
+        let result = determine_winner(&p1, &p2, &community);
+        assert_eq!(result.0, -1);
+        assert!(!result.1);
     }
 }

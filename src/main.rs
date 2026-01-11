@@ -21,6 +21,14 @@ struct GameConfig {
     raise_amount: i32,
     screen_width: f32,
     screen_height: f32,
+    pot_display_y: f32,
+    hand_number_x: f32,
+    hand_number_y: f32,
+    round_display_x: f32,
+    round_display_y: f32,
+    action_display_y: f32,
+    player_label_offset: f32,
+    chip_label_offset: f32,
 }
 
 impl Default for GameConfig {
@@ -41,14 +49,30 @@ impl Default for GameConfig {
             raise_amount: 100,
             screen_width: 375.0,
             screen_height: 812.0,
+            pot_display_y: 130.0,
+            hand_number_x: -160.0,
+            hand_number_y: 360.0,
+            round_display_x: 140.0,
+            round_display_y: 360.0,
+            action_display_y: -180.0,
+            player_label_offset: 20.0,
+            chip_label_offset: -5.0,
         }
     }
 }
 
-#[derive(Component)]
-struct CardEntity {
-    card: Card,
+fn get_round_name(round: PokerRound) -> &'static str {
+    match round {
+        PokerRound::PreFlop => "Pre-Flop",
+        PokerRound::Flop => "Flop",
+        PokerRound::Turn => "Turn",
+        PokerRound::River => "River",
+        PokerRound::Showdown => "Showdown",
+    }
 }
+
+#[derive(Component)]
+struct CardEntity;
 
 #[derive(Component)]
 struct HandMarker;
@@ -273,7 +297,7 @@ fn spawn_player(
                 transform: Transform::from_xyz(0.0, config.animation_start_y, 1.0),
                 ..default()
             },
-            CardEntity { card },
+            CardEntity,
             DealAnimation {
                 start_pos: Vec3::new(0.0, config.animation_start_y, 1.0),
                 target_pos,
@@ -297,7 +321,7 @@ fn spawn_player(
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(x_pos, y_pos + 20.0, 1.0),
+            transform: Transform::from_xyz(x_pos, y_pos + config.player_label_offset, 1.0),
             ..default()
         },
         HandMarker,
@@ -314,7 +338,7 @@ fn spawn_player(
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(x_pos, y_pos - 5.0, 1.0),
+            transform: Transform::from_xyz(x_pos, y_pos + config.chip_label_offset, 1.0),
             ..default()
         },
         HandMarker,
@@ -404,9 +428,7 @@ fn spawn_community_card(commands: &mut Commands, game_state: &mut GameStateResou
             transform: Transform::from_xyz(x_offset, config.community_card_start_y, 0.5),
             ..default()
         },
-        CardEntity {
-            card: community_card,
-        },
+        CardEntity,
         DealAnimation {
             start_pos: Vec3::new(x_offset, config.community_card_start_y, 0.5),
             target_pos,
@@ -432,6 +454,7 @@ fn spawn_community_card(commands: &mut Commands, game_state: &mut GameStateResou
 }
 
 fn spawn_ui(commands: &mut Commands, game_state: &mut GameStateResource) {
+    let config = GameConfig::default();
     commands.spawn((
         Text2dBundle {
             text: Text::from_section(
@@ -442,7 +465,7 @@ fn spawn_ui(commands: &mut Commands, game_state: &mut GameStateResource) {
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(0.0, 130.0, 1.0),
+            transform: Transform::from_xyz(0.0, config.pot_display_y, 1.0),
             ..default()
         },
         PotDisplay,
@@ -459,7 +482,7 @@ fn spawn_ui(commands: &mut Commands, game_state: &mut GameStateResource) {
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(-160.0, 360.0, 1.0),
+            transform: Transform::from_xyz(config.hand_number_x, config.hand_number_y, 1.0),
             ..default()
         },
         HandNumberDisplay,
@@ -500,25 +523,17 @@ fn spawn_ui(commands: &mut Commands, game_state: &mut GameStateResource) {
         HandMarker,
     ));
 
-    let round_name = match game_state.current_round {
-        PokerRound::PreFlop => "Pre-Flop",
-        PokerRound::Flop => "Flop",
-        PokerRound::Turn => "Turn",
-        PokerRound::River => "River",
-        PokerRound::Showdown => "Showdown",
-    };
-
     commands.spawn((
         Text2dBundle {
             text: Text::from_section(
-                round_name.to_string(),
+                get_round_name(game_state.current_round).to_string(),
                 TextStyle {
                     font_size: 18.0,
                     color: Color::srgb(0.9, 0.9, 0.9),
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(140.0, 360.0, 1.0),
+            transform: Transform::from_xyz(config.round_display_x, config.round_display_y, 1.0),
             ..default()
         },
         RoundDisplay,
@@ -535,7 +550,7 @@ fn spawn_ui(commands: &mut Commands, game_state: &mut GameStateResource) {
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(0.0, -180.0, 1.0),
+            transform: Transform::from_xyz(0.0, config.action_display_y, 1.0),
             ..default()
         },
         ActionDisplay,
@@ -825,16 +840,8 @@ fn update_ui(
         text.sections[0].value = format!("P2: ${}", game_state.player_chips[1]);
     }
 
-    let round_name = match game_state.current_round {
-        PokerRound::PreFlop => "Pre-Flop",
-        PokerRound::Flop => "Flop",
-        PokerRound::Turn => "Turn",
-        PokerRound::River => "River",
-        PokerRound::Showdown => "Showdown",
-    };
-
     for mut text in text_queries.p4().iter_mut() {
-        text.sections[0].value = round_name.to_string();
+        text.sections[0].value = get_round_name(game_state.current_round).to_string();
     }
 
     let action_text = if let Some(winner) = game_state.winner {
