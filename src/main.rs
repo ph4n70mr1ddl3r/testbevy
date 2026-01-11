@@ -10,6 +10,9 @@ struct GameConfig {
     card_height: f32,
     card_offset_spacing: f32,
     community_card_scale: f32,
+    card_target_y_offset: f32,
+    animation_start_y: f32,
+    community_card_start_y: f32,
     action_delay: f32,
     showdown_duration: f32,
     fold_showdown_duration: f32,
@@ -27,6 +30,9 @@ impl Default for GameConfig {
             card_height: 77.0,
             card_offset_spacing: 65.0,
             community_card_scale: 0.85,
+            card_target_y_offset: 100.0,
+            animation_start_y: 350.0,
+            community_card_start_y: 280.0,
             action_delay: 2.5,
             showdown_duration: 5.0,
             fold_showdown_duration: 3.0,
@@ -94,6 +100,12 @@ struct HandNumberDisplay;
 
 #[derive(Component)]
 struct PlayerChipsDisplay;
+
+#[derive(Component)]
+struct OpponentChipsDisplay;
+
+#[derive(Component)]
+struct RoundDisplay;
 
 #[derive(Component)]
 struct ActionDisplay;
@@ -232,7 +244,7 @@ fn spawn_player(
     y_pos: f32,
 ) {
     let config = GameConfig::default();
-    let card_target_y = y_pos + 100.0;
+    let card_target_y = y_pos + config.card_target_y_offset;
 
     for j in 0..2 {
         let card_offset = (j as f32 - 0.5) * config.card_offset_spacing;
@@ -258,12 +270,12 @@ fn spawn_player(
                     custom_size: Some(Vec2::new(config.card_width, config.card_height)),
                     ..default()
                 },
-                transform: Transform::from_xyz(0.0, 350.0, 1.0),
+                transform: Transform::from_xyz(0.0, config.animation_start_y, 1.0),
                 ..default()
             },
             CardEntity { card },
             DealAnimation {
-                start_pos: Vec3::new(0.0, 350.0, 1.0),
+                start_pos: Vec3::new(0.0, config.animation_start_y, 1.0),
                 target_pos,
                 start_time: 0.0,
                 duration: 0.5,
@@ -291,10 +303,11 @@ fn spawn_player(
         HandMarker,
     ));
 
+    let chip_text = format!("${}", game_state.player_chips[id]);
     commands.spawn((
         Text2dBundle {
             text: Text::from_section(
-                format!("${}", game_state.player_chips[id]),
+                chip_text,
                 TextStyle {
                     font_size: 18.0,
                     color: Color::srgb(1.0, 0.85, 0.0),
@@ -388,14 +401,14 @@ fn spawn_community_card(commands: &mut Commands, game_state: &mut GameStateResou
                 )),
                 ..default()
             },
-            transform: Transform::from_xyz(x_offset, 280.0, 0.5),
+            transform: Transform::from_xyz(x_offset, config.community_card_start_y, 0.5),
             ..default()
         },
         CardEntity {
             card: community_card,
         },
         DealAnimation {
-            start_pos: Vec3::new(x_offset, 280.0, 0.5),
+            start_pos: Vec3::new(x_offset, config.community_card_start_y, 0.5),
             target_pos,
             start_time: 0.0,
             duration: 0.4,
@@ -473,6 +486,48 @@ fn spawn_ui(commands: &mut Commands, game_state: &mut GameStateResource) {
     commands.spawn((
         Text2dBundle {
             text: Text::from_section(
+                format!("P2: ${}", game_state.player_chips[1]),
+                TextStyle {
+                    font_size: 14.0,
+                    color: Color::srgb(0.7, 0.7, 0.7),
+                    ..default()
+                },
+            ),
+            transform: Transform::from_xyz(0.0, 60.0, 1.0),
+            ..default()
+        },
+        OpponentChipsDisplay,
+        HandMarker,
+    ));
+
+    let round_name = match game_state.current_round {
+        PokerRound::PreFlop => "Pre-Flop",
+        PokerRound::Flop => "Flop",
+        PokerRound::Turn => "Turn",
+        PokerRound::River => "River",
+        PokerRound::Showdown => "Showdown",
+    };
+
+    commands.spawn((
+        Text2dBundle {
+            text: Text::from_section(
+                round_name.to_string(),
+                TextStyle {
+                    font_size: 18.0,
+                    color: Color::srgb(0.9, 0.9, 0.9),
+                    ..default()
+                },
+            ),
+            transform: Transform::from_xyz(140.0, 360.0, 1.0),
+            ..default()
+        },
+        RoundDisplay,
+        HandMarker,
+    ));
+
+    commands.spawn((
+        Text2dBundle {
+            text: Text::from_section(
                 game_state.last_action.clone(),
                 TextStyle {
                     font_size: 16.0,
@@ -501,23 +556,25 @@ fn cleanup_old_hand(
     }
 }
 
-fn handle_betting(mut game_state: ResMut<GameStateResource>, time: Res<Time>) {
-    let config = GameConfig::default();
+fn handle_betting(
+    config: Res<GameConfig>,
+    mut game_state: ResMut<GameStateResource>,
+    time: Res<Time>,
+) {
     let action_delay = config.action_delay;
     let elapsed = time.elapsed_seconds() - game_state.animation_start_time;
 
     if elapsed > 1.0 && (elapsed % action_delay) < time.delta_seconds() {
-        perform_validated_action(&mut game_state);
+        perform_validated_action(&mut game_state, &config);
     }
 }
 
-fn get_valid_actions(game_state: &GameStateResource) -> Vec<&'static str> {
+fn get_valid_actions(game_state: &GameStateResource, config: &GameConfig) -> Vec<&'static str> {
     let mut actions = Vec::new();
     let player_idx = game_state.current_player;
     let player_chips = game_state.player_chips[player_idx];
     let player_bet = game_state.player_bets[player_idx];
     let current_bet = game_state.current_bet;
-    let config = GameConfig::default();
 
     actions.push("Check");
 
@@ -538,8 +595,8 @@ fn get_valid_actions(game_state: &GameStateResource) -> Vec<&'static str> {
     actions
 }
 
-fn perform_validated_action(game_state: &mut GameStateResource) {
-    let actions = get_valid_actions(game_state);
+fn perform_validated_action(game_state: &mut GameStateResource, config: &GameConfig) {
+    let actions = get_valid_actions(game_state, config);
     if actions.is_empty() {
         game_state.last_action = "No actions available".to_string();
         return;
@@ -553,7 +610,6 @@ fn perform_validated_action(game_state: &mut GameStateResource) {
             game_state.current_player = (game_state.current_player + 1) % 2;
         }
         "Bet 50" => {
-            let config = GameConfig::default();
             let bet_amount = config.bet_amount;
             if game_state.player_chips[game_state.current_player] >= bet_amount {
                 game_state.player_chips[game_state.current_player] -= bet_amount;
@@ -575,7 +631,6 @@ fn perform_validated_action(game_state: &mut GameStateResource) {
             }
         }
         "Raise 100" => {
-            let config = GameConfig::default();
             let raise_amount = game_state.current_bet + config.raise_amount;
             let actual_raise = raise_amount - game_state.player_bets[game_state.current_player];
             if game_state.player_chips[game_state.current_player] >= actual_raise {
@@ -588,7 +643,6 @@ fn perform_validated_action(game_state: &mut GameStateResource) {
         }
         "Fold" => {
             let winner = (game_state.current_player + 1) % 2;
-            let config = GameConfig::default();
             game_state.winner = Some(winner as i32);
             game_state.player_chips[winner] += game_state.pot;
             game_state.player_chips[winner] += game_state.pot_remainder;
@@ -607,10 +661,10 @@ fn perform_validated_action(game_state: &mut GameStateResource) {
         _ => {}
     }
 
-    advance_street(game_state);
+    advance_street(game_state, config);
 }
 
-fn advance_street(game_state: &mut GameStateResource) {
+fn advance_street(game_state: &mut GameStateResource, config: &GameConfig) {
     let both_players_acted = game_state.player_bets[0] == game_state.current_bet
         && game_state.player_bets[1] == game_state.current_bet
         && game_state.current_bet > 0;
@@ -627,7 +681,6 @@ fn advance_street(game_state: &mut GameStateResource) {
                 game_state.current_round = PokerRound::River;
             }
             PokerRound::River => {
-                let config = GameConfig::default();
                 game_state.current_round = PokerRound::Showdown;
                 game_state.showdown_timer = config.showdown_duration;
             }
@@ -751,6 +804,8 @@ fn update_ui(
         Query<&mut Text, With<PotDisplay>>,
         Query<&mut Text, With<HandNumberDisplay>>,
         Query<&mut Text, With<PlayerChipsDisplay>>,
+        Query<&mut Text, With<OpponentChipsDisplay>>,
+        Query<&mut Text, With<RoundDisplay>>,
         Query<&mut Text, With<ActionDisplay>>,
     )>,
 ) {
@@ -764,6 +819,22 @@ fn update_ui(
 
     for mut text in text_queries.p2().iter_mut() {
         text.sections[0].value = format!("Chips: ${}", game_state.player_chips[0]);
+    }
+
+    for mut text in text_queries.p3().iter_mut() {
+        text.sections[0].value = format!("P2: ${}", game_state.player_chips[1]);
+    }
+
+    let round_name = match game_state.current_round {
+        PokerRound::PreFlop => "Pre-Flop",
+        PokerRound::Flop => "Flop",
+        PokerRound::Turn => "Turn",
+        PokerRound::River => "River",
+        PokerRound::Showdown => "Showdown",
+    };
+
+    for mut text in text_queries.p4().iter_mut() {
+        text.sections[0].value = round_name.to_string();
     }
 
     let action_text = if let Some(winner) = game_state.winner {
@@ -780,7 +851,7 @@ fn update_ui(
         game_state.last_action.clone()
     };
 
-    for mut text in text_queries.p3().iter_mut() {
+    for mut text in text_queries.p5().iter_mut() {
         text.sections[0].value = action_text.clone();
     }
 }

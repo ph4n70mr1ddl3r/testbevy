@@ -188,7 +188,7 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
 
     let is_flush = cards
         .windows(5)
-        .any(|window| window.iter().all(|c| c.suit == cards[0].suit));
+        .any(|window| window.iter().all(|c| c.suit == window[0].suit));
 
     let ranks: Vec<Rank> = cards.iter().map(|c| c.rank).collect();
     let mut unique_ranks: Vec<Rank> = ranks.clone();
