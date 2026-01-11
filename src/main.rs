@@ -8,9 +8,14 @@ use poker_logic::{determine_winner, Card, Deck, PokerRound};
 struct GameConfig {
     card_width: f32,
     card_height: f32,
+    card_offset_spacing: f32,
+    community_card_scale: f32,
     action_delay: f32,
     showdown_duration: f32,
+    fold_showdown_duration: f32,
     starting_chips: i32,
+    bet_amount: i32,
+    raise_amount: i32,
     screen_width: f32,
     screen_height: f32,
 }
@@ -20,9 +25,14 @@ impl Default for GameConfig {
         GameConfig {
             card_width: 55.0,
             card_height: 77.0,
+            card_offset_spacing: 65.0,
+            community_card_scale: 0.85,
             action_delay: 2.5,
             showdown_duration: 5.0,
+            fold_showdown_duration: 3.0,
             starting_chips: 1000,
+            bet_amount: 50,
+            raise_amount: 100,
             screen_width: 375.0,
             screen_height: 812.0,
         }
@@ -50,6 +60,7 @@ struct DealAnimation {
 struct GameStateResource {
     deck: Deck,
     pot: i32,
+    pot_remainder: i32,
     current_round: PokerRound,
     dealer_position: usize,
     current_player: usize,
@@ -85,9 +96,6 @@ struct HandNumberDisplay;
 struct PlayerChipsDisplay;
 
 #[derive(Component)]
-struct WinnerDisplay;
-
-#[derive(Component)]
 struct ActionDisplay;
 
 fn main() {
@@ -121,12 +129,14 @@ fn main() {
 }
 
 fn setup_game(mut commands: Commands, mut game_state: ResMut<GameStateResource>) {
+    let config = GameConfig::default();
     commands.spawn((Camera2dBundle::default(), HandMarker));
     game_state.hand_number = 1;
-    game_state.player_chips = [1000, 1000];
+    game_state.player_chips = [config.starting_chips, config.starting_chips];
     game_state.player_bets = [0, 0];
     game_state.current_bet = 0;
     game_state.deck = Deck::new();
+    game_state.pot_remainder = 0;
 }
 
 fn start_hand_system(
@@ -147,6 +157,7 @@ fn start_hand_system(
 
 fn start_hand(commands: &mut Commands, game_state: &mut GameStateResource) {
     game_state.pot = 0;
+    game_state.pot_remainder = 0;
     game_state.current_round = PokerRound::PreFlop;
     game_state.street_cards.clear();
     game_state.last_action = format!("Hand #{}", game_state.hand_number);
@@ -224,7 +235,7 @@ fn spawn_player(
     let card_target_y = y_pos + 100.0;
 
     for j in 0..2 {
-        let card_offset = (j as f32 - 0.5) * 65.0;
+        let card_offset = (j as f32 - 0.5) * config.card_offset_spacing;
         let target_pos = Vec3::new(x_pos + card_offset, card_target_y, 1.0);
         let card = game_state.deck.draw().unwrap_or(Card::placeholder());
 
@@ -261,7 +272,7 @@ fn spawn_player(
             HandMarker,
         ));
 
-        spawn_card_text(commands, card, target_pos, text_color);
+        spawn_card_text(commands, card, target_pos, text_color, 14.0);
     }
 
     commands.spawn((
@@ -297,7 +308,13 @@ fn spawn_player(
     ));
 }
 
-fn spawn_card_text(commands: &mut Commands, card: Card, target_pos: Vec3, text_color: Color) {
+fn spawn_card_text(
+    commands: &mut Commands,
+    card: Card,
+    target_pos: Vec3,
+    text_color: Color,
+    font_size: f32,
+) {
     let config = GameConfig::default();
 
     commands.spawn((
@@ -305,7 +322,7 @@ fn spawn_card_text(commands: &mut Commands, card: Card, target_pos: Vec3, text_c
             text: Text::from_section(
                 format!("{}\n{}", card.rank_str(), card.suit_str()),
                 TextStyle {
-                    font_size: 14.0,
+                    font_size,
                     color: text_color,
                     ..default()
                 },
@@ -325,7 +342,7 @@ fn spawn_card_text(commands: &mut Commands, card: Card, target_pos: Vec3, text_c
             text: Text::from_section(
                 format!("{}\n{}", card.rank_str(), card.suit_str()),
                 TextStyle {
-                    font_size: 14.0,
+                    font_size,
                     color: text_color,
                     ..default()
                 },
@@ -344,7 +361,7 @@ fn spawn_card_text(commands: &mut Commands, card: Card, target_pos: Vec3, text_c
 
 fn spawn_community_card(commands: &mut Commands, game_state: &mut GameStateResource, i: usize) {
     let config = GameConfig::default();
-    let x_offset = (i as f32 - 2.0) * 65.0;
+    let x_offset = (i as f32 - 2.0) * config.card_offset_spacing;
     let community_card = if i < 3 {
         game_state.deck.draw().unwrap_or(Card::placeholder())
     } else {
@@ -366,8 +383,8 @@ fn spawn_community_card(commands: &mut Commands, game_state: &mut GameStateResou
                     Color::srgb(0.98, 0.95, 0.95)
                 },
                 custom_size: Some(Vec2::new(
-                    config.card_width * 0.85,
-                    config.card_height * 0.85,
+                    config.card_width * config.community_card_scale,
+                    config.card_height * config.community_card_scale,
                 )),
                 ..default()
             },
@@ -397,59 +414,8 @@ fn spawn_community_card(commands: &mut Commands, game_state: &mut GameStateResou
         } else {
             Color::srgb(0.1, 0.1, 0.1)
         };
-        spawn_community_card_text(commands, community_card, x_offset, 0.5, text_color);
+        spawn_card_text(commands, community_card, target_pos, text_color, 12.0);
     }
-}
-
-fn spawn_community_card_text(
-    commands: &mut Commands,
-    card: Card,
-    x_offset: f32,
-    z: f32,
-    text_color: Color,
-) {
-    let config = GameConfig::default();
-
-    commands.spawn((
-        Text2dBundle {
-            text: Text::from_section(
-                format!("{}\n{}", card.rank_str(), card.suit_str()),
-                TextStyle {
-                    font_size: 12.0,
-                    color: text_color,
-                    ..default()
-                },
-            ),
-            transform: Transform::from_xyz(
-                x_offset - config.card_width * 0.85 / 2.0 + 6.0,
-                config.card_height * 0.85 / 2.0 - 8.0,
-                z,
-            ),
-            ..default()
-        },
-        HandMarker,
-    ));
-
-    commands.spawn((
-        Text2dBundle {
-            text: Text::from_section(
-                format!("{}\n{}", card.rank_str(), card.suit_str()),
-                TextStyle {
-                    font_size: 12.0,
-                    color: text_color,
-                    ..default()
-                },
-            ),
-            transform: Transform::from_xyz(
-                x_offset + config.card_width * 0.85 / 2.0 - 6.0,
-                -config.card_height * 0.85 / 2.0 + 8.0,
-                z,
-            )
-            .with_rotation(Quat::from_rotation_z(std::f32::consts::PI)),
-            ..default()
-        },
-        HandMarker,
-    ));
 }
 
 fn spawn_ui(commands: &mut Commands, game_state: &mut GameStateResource) {
@@ -551,6 +517,7 @@ fn get_valid_actions(game_state: &GameStateResource) -> Vec<&'static str> {
     let player_chips = game_state.player_chips[player_idx];
     let player_bet = game_state.player_bets[player_idx];
     let current_bet = game_state.current_bet;
+    let config = GameConfig::default();
 
     actions.push("Check");
 
@@ -562,7 +529,7 @@ fn get_valid_actions(game_state: &GameStateResource) -> Vec<&'static str> {
         if player_chips > current_bet {
             actions.push("Raise 100");
         }
-    } else if player_chips >= 50 {
+    } else if player_chips >= config.bet_amount {
         actions.push("Bet 50");
     }
 
@@ -586,7 +553,8 @@ fn perform_validated_action(game_state: &mut GameStateResource) {
             game_state.current_player = (game_state.current_player + 1) % 2;
         }
         "Bet 50" => {
-            let bet_amount = 50;
+            let config = GameConfig::default();
+            let bet_amount = config.bet_amount;
             if game_state.player_chips[game_state.current_player] >= bet_amount {
                 game_state.player_chips[game_state.current_player] -= bet_amount;
                 game_state.player_bets[game_state.current_player] += bet_amount;
@@ -607,7 +575,8 @@ fn perform_validated_action(game_state: &mut GameStateResource) {
             }
         }
         "Raise 100" => {
-            let raise_amount = game_state.current_bet + 100;
+            let config = GameConfig::default();
+            let raise_amount = game_state.current_bet + config.raise_amount;
             let actual_raise = raise_amount - game_state.player_bets[game_state.current_player];
             if game_state.player_chips[game_state.current_player] >= actual_raise {
                 game_state.player_chips[game_state.current_player] -= actual_raise;
@@ -619,17 +588,20 @@ fn perform_validated_action(game_state: &mut GameStateResource) {
         }
         "Fold" => {
             let winner = (game_state.current_player + 1) % 2;
+            let config = GameConfig::default();
             game_state.winner = Some(winner as i32);
             game_state.player_chips[winner] += game_state.pot;
+            game_state.player_chips[winner] += game_state.pot_remainder;
             game_state.last_winner_message = format!(
                 "P{} folded - P{} wins ${}",
                 game_state.current_player + 1,
                 winner + 1,
-                game_state.pot
+                game_state.pot + game_state.pot_remainder
             );
             game_state.pot = 0;
+            game_state.pot_remainder = 0;
             game_state.current_round = PokerRound::Showdown;
-            game_state.showdown_timer = 3.0;
+            game_state.showdown_timer = config.fold_showdown_duration;
             return;
         }
         _ => {}
@@ -655,8 +627,9 @@ fn advance_street(game_state: &mut GameStateResource) {
                 game_state.current_round = PokerRound::River;
             }
             PokerRound::River => {
+                let config = GameConfig::default();
                 game_state.current_round = PokerRound::Showdown;
-                game_state.showdown_timer = 5.0;
+                game_state.showdown_timer = config.showdown_duration;
             }
             PokerRound::Showdown => {}
         }
@@ -665,6 +638,7 @@ fn advance_street(game_state: &mut GameStateResource) {
             game_state.current_bet = 0;
             game_state.player_bets = [0, 0];
             game_state.current_player = game_state.dealer_position;
+            game_state.pot_remainder = 0;
         }
     }
 }
@@ -697,11 +671,7 @@ fn check_game_flow(mut game_state: ResMut<GameStateResource>, time: Res<Time>) {
     }
 }
 
-fn handle_showdown(
-    mut commands: Commands,
-    mut game_state: ResMut<GameStateResource>,
-    mut text_query: Query<&mut Text, With<WinnerDisplay>>,
-) {
+fn handle_showdown(mut commands: Commands, mut game_state: ResMut<GameStateResource>) {
     if game_state.current_round == PokerRound::Showdown && game_state.showdown_timer <= 0.0 {
         if game_state.winner.is_none() {
             let result = determine_winner(
@@ -712,22 +682,33 @@ fn handle_showdown(
             match result {
                 (0, true) => {
                     game_state.winner = Some(0);
-                    game_state.player_chips[0] += game_state.pot;
-                    game_state.last_winner_message = format!("P1 wins ${}!", game_state.pot);
+                    let total_pot = game_state.pot + game_state.pot_remainder;
+                    game_state.player_chips[0] += total_pot;
+                    game_state.last_winner_message = format!("P1 wins ${}!", total_pot);
                 }
                 (1, true) => {
                     game_state.winner = Some(1);
-                    game_state.player_chips[1] += game_state.pot;
-                    game_state.last_winner_message = format!("P2 wins ${}!", game_state.pot);
+                    let total_pot = game_state.pot + game_state.pot_remainder;
+                    game_state.player_chips[1] += total_pot;
+                    game_state.last_winner_message = format!("P2 wins ${}!", total_pot);
                 }
                 _ => {
+                    let split_amount = game_state.pot / 2;
+                    let remainder = game_state.pot % 2;
+                    game_state.player_chips[0] += split_amount;
+                    game_state.player_chips[1] += split_amount;
+                    game_state.pot_remainder += remainder;
                     game_state.last_winner_message =
-                        format!("Split pot - each wins ${}", game_state.pot / 2);
-                    game_state.player_chips[0] += game_state.pot / 2;
-                    game_state.player_chips[1] += game_state.pot / 2;
+                        format!("Split pot - each wins ${}", split_amount);
+                    if remainder > 0 {
+                        game_state
+                            .last_winner_message
+                            .push_str(&format!(" ({} remainder)", remainder));
+                    }
                 }
             }
             game_state.pot = 0;
+            game_state.pot_remainder = 0;
         }
 
         game_state.current_round = PokerRound::PreFlop;
@@ -738,13 +719,13 @@ fn handle_showdown(
 }
 
 fn update_card_visuals(
-    mut query: Query<(&mut Sprite, &CardEntity, Option<&CommunityCard>)>,
+    mut query: Query<(&mut Sprite, Option<&CommunityCard>)>,
     game_state: Res<GameStateResource>,
 ) {
     let face_up_color = Color::srgb(0.98, 0.95, 0.95);
     let face_down_color = Color::srgb(0.2, 0.3, 0.2);
 
-    for (mut sprite, card_entity, community_card) in query.iter_mut() {
+    for (mut sprite, community_card) in query.iter_mut() {
         if let Some(cc) = community_card {
             let should_reveal = match game_state.current_round {
                 PokerRound::Flop => cc.index < 3,

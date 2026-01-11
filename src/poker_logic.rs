@@ -126,10 +126,6 @@ impl Deck {
     pub fn draw(&mut self) -> Option<Card> {
         self.cards.pop()
     }
-
-    pub fn draw_n(&mut self, n: usize) -> Vec<Card> {
-        (0..n).filter_map(|_| self.cards.pop()).collect()
-    }
 }
 
 impl Default for Deck {
@@ -192,22 +188,27 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
 
     let is_flush = cards
         .windows(5)
-        .all(|window| window.iter().all(|c| c.suit == cards[0].suit));
+        .any(|window| window.iter().all(|c| c.suit == cards[0].suit));
 
     let ranks: Vec<Rank> = cards.iter().map(|c| c.rank).collect();
     let mut unique_ranks: Vec<Rank> = ranks.clone();
     unique_ranks.dedup();
 
     let is_straight = if unique_ranks.len() >= 5 {
-        let has_ace_low_straight =
-            unique_ranks == vec![Rank::Two, Rank::Three, Rank::Four, Rank::Five, Rank::Ace];
-        if has_ace_low_straight {
+        let has_ace_low = unique_ranks.contains(&Rank::Two) && unique_ranks.contains(&Rank::Ace);
+        let has_wheel = has_ace_low
+            && unique_ranks.contains(&Rank::Three)
+            && unique_ranks.contains(&Rank::Four)
+            && unique_ranks.contains(&Rank::Five);
+
+        if has_wheel {
             true
         } else {
             let mut found_straight = false;
             for i in 0..=unique_ranks.len() - 5 {
                 let window = &unique_ranks[i..i + 5];
-                if window[4] as u8 - window[0] as u8 == 4 {
+                let is_consecutive = window.windows(2).all(|w| (w[1] as u8) - (w[0] as u8) == 1);
+                if is_consecutive {
                     found_straight = true;
                     break;
                 }
@@ -246,12 +247,13 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
         .collect();
 
     if is_flush && is_straight {
-        let straight_high =
-            if unique_ranks == vec![Rank::Two, Rank::Three, Rank::Four, Rank::Five, Rank::Ace] {
-                Rank::Five
-            } else {
-                Rank::Ace
-            };
+        let has_wheel =
+            unique_ranks == vec![Rank::Two, Rank::Three, Rank::Four, Rank::Five, Rank::Ace];
+        let straight_high = if has_wheel {
+            Rank::Five
+        } else {
+            unique_ranks.iter().max().copied().unwrap_or(Rank::Ace)
+        };
         return EvaluatedHand {
             hand_rank: HandRank::StraightFlush,
             primary_values: vec![straight_high],
@@ -293,12 +295,13 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
     }
 
     if is_straight {
-        let straight_high =
-            if unique_ranks == vec![Rank::Two, Rank::Three, Rank::Four, Rank::Five, Rank::Ace] {
-                Rank::Five
-            } else {
-                Rank::Ace
-            };
+        let has_wheel =
+            unique_ranks == vec![Rank::Two, Rank::Three, Rank::Four, Rank::Five, Rank::Ace];
+        let straight_high = if has_wheel {
+            Rank::Five
+        } else {
+            unique_ranks.iter().max().copied().unwrap_or(Rank::Ace)
+        };
         return EvaluatedHand {
             hand_rank: HandRank::Straight,
             primary_values: vec![straight_high],
