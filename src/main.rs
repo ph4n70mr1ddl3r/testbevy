@@ -95,6 +95,19 @@ const CHIP_GOLD: (f32, f32, f32) = (1.0, 0.85, 0.0);
 
 const MIN_CARDS_FOR_RESHUFFLE: usize = 9;
 
+const PLAYER_Y_TOP_RATIO: f32 = 0.25;
+const PLAYER_Y_BOTTOM_RATIO: f32 = -0.32;
+const TABLE_DARK_Z: f32 = 0.0;
+const TABLE_DARK_Y: f32 = -20.0;
+const TABLE_LIGHT_Z: f32 = 0.1;
+const TABLE_LIGHT_Y: f32 = -30.0;
+const CARD_TEXT_TOP_OFFSET_X: f32 = 8.0;
+const CARD_TEXT_TOP_OFFSET_Y: f32 = -12.0;
+const CARD_TEXT_BOTTOM_OFFSET_X: f32 = -8.0;
+const CARD_TEXT_BOTTOM_OFFSET_Y: f32 = 12.0;
+const PLAYER_CHIPS_Y: f32 = -260.0;
+const OPPONENT_CHIPS_Y: f32 = 60.0;
+
 fn get_round_name(round: PokerRound) -> &'static str {
     match round {
         PokerRound::PreFlop => "Pre-Flop",
@@ -264,8 +277,8 @@ fn start_hand(commands: &mut Commands, game_state: &mut GameStateResource) {
     let config = GameConfig::default();
     spawn_table(commands, config.screen_width, config.screen_height);
 
-    let player_y_top = config.screen_height * 0.25;
-    let player_y_bottom = -config.screen_height * 0.32;
+    let player_y_top = config.screen_height * PLAYER_Y_TOP_RATIO;
+    let player_y_bottom = config.screen_height * PLAYER_Y_BOTTOM_RATIO;
 
     for id in 0..2 {
         spawn_player(
@@ -297,7 +310,7 @@ fn spawn_table(commands: &mut Commands, screen_width: f32, screen_height: f32) {
                 custom_size: Some(Vec2::new(screen_width, screen_height * 0.55)),
                 ..default()
             },
-            transform: Transform::from_xyz(0.0, -20.0, 0.0),
+            transform: Transform::from_xyz(0.0, TABLE_DARK_Y, TABLE_DARK_Z),
             ..default()
         },
         HandMarker,
@@ -314,7 +327,7 @@ fn spawn_table(commands: &mut Commands, screen_width: f32, screen_height: f32) {
                 custom_size: Some(Vec2::new(screen_width * 0.94, screen_height * 0.48)),
                 ..default()
             },
-            transform: Transform::from_xyz(0.0, -30.0, 0.1),
+            transform: Transform::from_xyz(0.0, TABLE_LIGHT_Y, TABLE_LIGHT_Z),
             ..default()
         },
         HandMarker,
@@ -432,8 +445,8 @@ fn spawn_card_text(
                 },
             ),
             transform: Transform::from_xyz(
-                target_pos.x - config.card_width / 2.0 + 8.0,
-                target_pos.y + config.card_height / 2.0 - 12.0,
+                target_pos.x - config.card_width / 2.0 + CARD_TEXT_TOP_OFFSET_X,
+                target_pos.y + config.card_height / 2.0 + CARD_TEXT_TOP_OFFSET_Y,
                 1.1,
             ),
             ..default()
@@ -452,8 +465,8 @@ fn spawn_card_text(
                 },
             ),
             transform: Transform::from_xyz(
-                target_pos.x + config.card_width / 2.0 - 8.0,
-                target_pos.y - config.card_height / 2.0 + 12.0,
+                target_pos.x + config.card_width / 2.0 + CARD_TEXT_BOTTOM_OFFSET_X,
+                target_pos.y - config.card_height / 2.0 + CARD_TEXT_BOTTOM_OFFSET_Y,
                 1.1,
             )
             .with_rotation(Quat::from_rotation_z(std::f32::consts::PI)),
@@ -576,7 +589,7 @@ fn spawn_ui(commands: &mut Commands, game_state: &mut GameStateResource, config:
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(0.0, -260.0, 1.0),
+            transform: Transform::from_xyz(0.0, PLAYER_CHIPS_Y, 1.0),
             ..default()
         },
         PlayerChipsDisplay,
@@ -593,7 +606,7 @@ fn spawn_ui(commands: &mut Commands, game_state: &mut GameStateResource, config:
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(0.0, 60.0, 1.0),
+            transform: Transform::from_xyz(0.0, OPPONENT_CHIPS_Y, 1.0),
             ..default()
         },
         OpponentChipsDisplay,
