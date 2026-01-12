@@ -108,6 +108,16 @@ const CARD_TEXT_BOTTOM_OFFSET_Y: f32 = 12.0;
 const PLAYER_CHIPS_Y: f32 = -260.0;
 const OPPONENT_CHIPS_Y: f32 = 60.0;
 
+const TABLE_DARK_HEIGHT_RATIO: f32 = 0.55;
+const TABLE_DARK_WIDTH_RATIO: f32 = 1.0;
+const TABLE_LIGHT_HEIGHT_RATIO: f32 = 0.48;
+const TABLE_LIGHT_WIDTH_RATIO: f32 = 0.94;
+
+const CARD_Z_POSITION: f32 = 1.0;
+const CARD_TEXT_Z_POSITION: f32 = 1.1;
+const COMMUNITY_CARD_Z_POSITION: f32 = 0.5;
+const CARD_TARGET_Z: f32 = 1.0;
+
 fn get_round_name(round: PokerRound) -> &'static str {
     match round {
         PokerRound::PreFlop => "Pre-Flop",
@@ -307,7 +317,10 @@ fn spawn_table(commands: &mut Commands, screen_width: f32, screen_height: f32) {
         SpriteBundle {
             sprite: Sprite {
                 color: Color::srgb(TABLE_GREEN_DARK.0, TABLE_GREEN_DARK.1, TABLE_GREEN_DARK.2),
-                custom_size: Some(Vec2::new(screen_width, screen_height * 0.55)),
+                custom_size: Some(Vec2::new(
+                    screen_width * TABLE_DARK_WIDTH_RATIO,
+                    screen_height * TABLE_DARK_HEIGHT_RATIO,
+                )),
                 ..default()
             },
             transform: Transform::from_xyz(0.0, TABLE_DARK_Y, TABLE_DARK_Z),
@@ -324,7 +337,10 @@ fn spawn_table(commands: &mut Commands, screen_width: f32, screen_height: f32) {
                     TABLE_GREEN_LIGHT.1,
                     TABLE_GREEN_LIGHT.2,
                 ),
-                custom_size: Some(Vec2::new(screen_width * 0.94, screen_height * 0.48)),
+                custom_size: Some(Vec2::new(
+                    screen_width * TABLE_LIGHT_WIDTH_RATIO,
+                    screen_height * TABLE_LIGHT_HEIGHT_RATIO,
+                )),
                 ..default()
             },
             transform: Transform::from_xyz(0.0, TABLE_LIGHT_Y, TABLE_LIGHT_Z),
@@ -368,12 +384,12 @@ fn spawn_player(
                     custom_size: Some(Vec2::new(config.card_width, config.card_height)),
                     ..default()
                 },
-                transform: Transform::from_xyz(0.0, config.animation_start_y, 1.0),
+                transform: Transform::from_xyz(0.0, config.animation_start_y, CARD_Z_POSITION),
                 ..default()
             },
             CardEntity,
             DealAnimation {
-                start_pos: Vec3::new(0.0, config.animation_start_y, 1.0),
+                start_pos: Vec3::new(0.0, config.animation_start_y, CARD_Z_POSITION),
                 target_pos,
                 start_time: 0.0,
                 duration: ANIMATION_DEAL_DURATION,
@@ -447,7 +463,7 @@ fn spawn_card_text(
             transform: Transform::from_xyz(
                 target_pos.x - config.card_width / 2.0 + CARD_TEXT_TOP_OFFSET_X,
                 target_pos.y + config.card_height / 2.0 + CARD_TEXT_TOP_OFFSET_Y,
-                1.1,
+                CARD_TEXT_Z_POSITION,
             ),
             ..default()
         },
@@ -467,7 +483,7 @@ fn spawn_card_text(
             transform: Transform::from_xyz(
                 target_pos.x + config.card_width / 2.0 + CARD_TEXT_BOTTOM_OFFSET_X,
                 target_pos.y - config.card_height / 2.0 + CARD_TEXT_BOTTOM_OFFSET_Y,
-                1.1,
+                CARD_TEXT_Z_POSITION,
             )
             .with_rotation(Quat::from_rotation_z(std::f32::consts::PI)),
             ..default()
@@ -493,7 +509,7 @@ fn spawn_community_card(
 
     let is_hidden = i >= 3;
 
-    let target_pos = Vec3::new(x_offset, 0.0, 0.5);
+    let target_pos = Vec3::new(x_offset, 0.0, CARD_TARGET_Z);
 
     commands.spawn((
         SpriteBundle {
@@ -509,12 +525,20 @@ fn spawn_community_card(
                 )),
                 ..default()
             },
-            transform: Transform::from_xyz(x_offset, config.community_card_start_y, 0.5),
+            transform: Transform::from_xyz(
+                x_offset,
+                config.community_card_start_y,
+                COMMUNITY_CARD_Z_POSITION,
+            ),
             ..default()
         },
         CardEntity,
         DealAnimation {
-            start_pos: Vec3::new(x_offset, config.community_card_start_y, 0.5),
+            start_pos: Vec3::new(
+                x_offset,
+                config.community_card_start_y,
+                COMMUNITY_CARD_Z_POSITION,
+            ),
             target_pos,
             start_time: 0.0,
             duration: ANIMATION_COMMUNITY_DURATION,
