@@ -74,14 +74,12 @@ const PLAYER_CHIPS_FONT_SIZE: f32 = 16.0;
 const OPPONENT_CHIPS_FONT_SIZE: f32 = 14.0;
 const ROUND_FONT_SIZE: f32 = 18.0;
 const ACTION_FONT_SIZE: f32 = 16.0;
-const CARD_CORNER_FONT_SIZE: f32 = 14.0;
 const COMMUNITY_CARD_FONT_SIZE: f32 = 12.0;
 const PLAYER_LABEL_FONT_SIZE: f32 = 20.0;
 const CHIP_LABEL_FONT_SIZE: f32 = 18.0;
 
 const CARD_TEXT_RED: f32 = 0.85;
-const CARD_TEXT_GREEN: f32 = 0.1;
-const CARD_TEXT_BLUE: f32 = 0.1;
+const CARD_TEXT_BLACK: (f32, f32, f32) = (0.1, 0.1, 0.1);
 
 const TABLE_GREEN_DARK: (f32, f32, f32) = (0.12, 0.45, 0.18);
 const TABLE_GREEN_LIGHT: (f32, f32, f32) = (0.18, 0.55, 0.22);
@@ -372,9 +370,9 @@ fn spawn_player(
         }
 
         let text_color = if card.is_red() {
-            Color::srgb(CARD_TEXT_RED, CARD_TEXT_GREEN, CARD_TEXT_BLUE)
+            Color::srgb(CARD_TEXT_RED, CARD_TEXT_BLACK.1, CARD_TEXT_BLACK.2)
         } else {
-            Color::srgb(CARD_TEXT_GREEN, CARD_TEXT_GREEN, CARD_TEXT_GREEN)
+            Color::srgb(CARD_TEXT_BLACK.0, CARD_TEXT_BLACK.1, CARD_TEXT_BLACK.2)
         };
 
         commands.spawn((
@@ -403,7 +401,7 @@ fn spawn_player(
             card,
             target_pos,
             text_color,
-            CARD_CORNER_FONT_SIZE,
+            HAND_NUMBER_FONT_SIZE,
             &config,
         );
     }
@@ -553,9 +551,9 @@ fn spawn_community_card(
 
     if !is_hidden {
         let text_color = if community_card.is_red() {
-            Color::srgb(CARD_TEXT_RED, CARD_TEXT_GREEN, CARD_TEXT_BLUE)
+            Color::srgb(CARD_TEXT_RED, CARD_TEXT_BLACK.1, CARD_TEXT_BLACK.2)
         } else {
-            Color::srgb(CARD_TEXT_GREEN, CARD_TEXT_GREEN, CARD_TEXT_GREEN)
+            Color::srgb(CARD_TEXT_BLACK.0, CARD_TEXT_BLACK.1, CARD_TEXT_BLACK.2)
         };
         spawn_card_text(
             commands,

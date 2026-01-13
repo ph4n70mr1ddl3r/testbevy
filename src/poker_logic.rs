@@ -273,10 +273,13 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
         .collect();
 
     if is_flush && is_straight {
-        let flush_suit = suit_counts.iter().find(|(_, &count)| count >= 5).unwrap().0;
+        let flush_suit = suit_counts
+            .iter()
+            .find(|(_, &count)| count >= 5)
+            .expect("is_flush ensures a suit has >= 5 cards");
         let flush_cards: Vec<Card> = cards
             .iter()
-            .filter(|c| c.suit == *flush_suit)
+            .filter(|c| c.suit == *flush_suit.0)
             .cloned()
             .collect();
         let flush_ranks: Vec<Rank> = flush_cards.iter().map(|c| c.rank).collect();
