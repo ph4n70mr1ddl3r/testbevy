@@ -968,8 +968,7 @@ fn update_ui(
         game_state.last_action.clone()
     };
 
-    for mut text in text_queries.p5().iter_mut() {
+    if let Some(mut text) = text_queries.p5().iter_mut().next() {
         text.sections[0].value = action_text;
-        break;
     }
 }
