@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use rand::seq::SliceRandom;
+use rand::prelude::*;
 
 mod poker_logic;
 use poker_logic::{determine_winner, Card, Deck, PokerRound};

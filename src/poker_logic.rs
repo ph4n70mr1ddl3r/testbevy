@@ -1214,4 +1214,51 @@ mod tests {
         assert_eq!(eval.primary_values[0], Rank::Ace);
         assert_eq!(eval.primary_values[1], Rank::King);
     }
+
+    #[test]
+    fn test_straight_with_duplicates() {
+        let hand = vec![
+            card(Rank::Six, Suit::Hearts),
+            card(Rank::Six, Suit::Spades),
+            card(Rank::Seven, Suit::Hearts),
+            card(Rank::Eight, Suit::Diamonds),
+            card(Rank::Nine, Suit::Clubs),
+            card(Rank::Ten, Suit::Hearts),
+            card(Rank::Five, Suit::Spades),
+        ];
+        let eval = evaluate_hand(&hand);
+        assert_eq!(eval.hand_rank, HandRank::Straight);
+        assert_eq!(eval.primary_values[0], Rank::Ten);
+    }
+
+    #[test]
+    fn test_no_straight_with_gap() {
+        let hand = vec![
+            card(Rank::Ace, Suit::Hearts),
+            card(Rank::King, Suit::Spades),
+            card(Rank::Queen, Suit::Diamonds),
+            card(Rank::Jack, Suit::Clubs),
+            card(Rank::Nine, Suit::Hearts),
+            card(Rank::Eight, Suit::Spades),
+            card(Rank::Six, Suit::Diamonds),
+        ];
+        let eval = evaluate_hand(&hand);
+        assert_eq!(eval.hand_rank, HandRank::HighCard);
+    }
+
+    #[test]
+    fn test_straight_6_high() {
+        let hand = vec![
+            card(Rank::Two, Suit::Hearts),
+            card(Rank::Three, Suit::Spades),
+            card(Rank::Four, Suit::Diamonds),
+            card(Rank::Five, Suit::Clubs),
+            card(Rank::Six, Suit::Hearts),
+            card(Rank::King, Suit::Spades),
+            card(Rank::Eight, Suit::Diamonds),
+        ];
+        let eval = evaluate_hand(&hand);
+        assert_eq!(eval.hand_rank, HandRank::Straight);
+        assert_eq!(eval.primary_values[0], Rank::Six);
+    }
 }
