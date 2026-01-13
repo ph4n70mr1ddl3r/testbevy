@@ -329,7 +329,7 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
     }
 
     if is_straight {
-        let straight_high = straight_high.unwrap_or(Rank::Five);
+        let straight_high = straight_high.unwrap();
         return EvaluatedHand {
             hand_rank: HandRank::Straight,
             primary_values: vec![straight_high],
