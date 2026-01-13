@@ -370,7 +370,7 @@ fn spawn_player(
         }
 
         let text_color = if card.is_red() {
-            Color::srgb(CARD_TEXT_RED, CARD_TEXT_BLACK.1, CARD_TEXT_BLACK.2)
+            Color::srgb(CARD_TEXT_RED, 0.0, CARD_TEXT_BLACK.2)
         } else {
             Color::srgb(CARD_TEXT_BLACK.0, CARD_TEXT_BLACK.1, CARD_TEXT_BLACK.2)
         };
@@ -551,7 +551,7 @@ fn spawn_community_card(
 
     if !is_hidden {
         let text_color = if community_card.is_red() {
-            Color::srgb(CARD_TEXT_RED, CARD_TEXT_BLACK.1, CARD_TEXT_BLACK.2)
+            Color::srgb(CARD_TEXT_RED, 0.0, CARD_TEXT_BLACK.2)
         } else {
             Color::srgb(CARD_TEXT_BLACK.0, CARD_TEXT_BLACK.1, CARD_TEXT_BLACK.2)
         };
@@ -691,8 +691,9 @@ fn handle_betting(
     let action_delay = config.action_delay;
     let elapsed = time.elapsed_seconds() - game_state.animation_start_time;
 
-    if elapsed > 1.0 && (elapsed % action_delay) < time.delta_seconds() {
+    if elapsed > 1.0 && (elapsed - 1.0) / action_delay > game_state.showdown_timer {
         perform_validated_action(&mut game_state, &config);
+        game_state.showdown_timer = (elapsed - 1.0) / action_delay;
     }
 }
 
@@ -955,15 +956,11 @@ fn update_ui(
     }
 
     let action_text = if let Some(winner) = game_state.winner {
-        if winner >= 0 {
-            format!(
-                "Winner: P{} - {}",
-                winner + 1,
-                game_state.last_winner_message
-            )
-        } else {
-            game_state.last_winner_message.clone()
-        }
+        format!(
+            "Winner: P{} - {}",
+            winner + 1,
+            game_state.last_winner_message
+        )
     } else {
         game_state.last_action.clone()
     };
