@@ -198,7 +198,7 @@ enum PokerAction {
 }
 
 impl PokerAction {
-    fn to_str(&self) -> &'static str {
+    fn as_str(&self) -> &'static str {
         match self {
             PokerAction::Check => "Check",
             PokerAction::Bet => "Bet 50",
@@ -361,7 +361,10 @@ fn spawn_player(
     for j in 0..2 {
         let card_offset = (j as f32 - 0.5) * config.card_offset_spacing;
         let target_pos = Vec3::new(x_pos + card_offset, card_target_y, 1.0);
-        let card = game_state.deck.draw().unwrap_or(Card::placeholder());
+        let card = game_state
+            .deck
+            .draw()
+            .expect("Failed to draw card from deck - deck should have sufficient cards");
 
         if id == 0 {
             game_state.p1_hole[j] = card;
@@ -402,7 +405,7 @@ fn spawn_player(
             target_pos,
             text_color,
             HAND_NUMBER_FONT_SIZE,
-            &config,
+            config,
         );
     }
 
@@ -498,7 +501,10 @@ fn spawn_community_card(
 ) {
     let x_offset = (i as f32 - 2.0) * config.card_offset_spacing;
     let community_card = if i < 3 {
-        game_state.deck.draw().unwrap_or(Card::placeholder())
+        game_state
+            .deck
+            .draw()
+            .expect("Failed to draw community card - deck should have sufficient cards")
     } else {
         Card::placeholder()
     };
@@ -561,7 +567,7 @@ fn spawn_community_card(
             target_pos,
             text_color,
             COMMUNITY_CARD_FONT_SIZE,
-            &config,
+            config,
         );
     }
 }
@@ -731,7 +737,7 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
     }
 
     let action = actions.choose(&mut rand::thread_rng()).unwrap();
-    game_state.last_action = format!("P{}: {}", game_state.current_player + 1, action.to_str());
+    game_state.last_action = format!("P{}: {}", game_state.current_player + 1, action.as_str());
 
     match action {
         PokerAction::Check => {

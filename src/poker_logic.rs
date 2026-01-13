@@ -163,7 +163,7 @@ fn find_straight_high(ranks: &HashSet<Rank>) -> Option<Rank> {
 
     let mut highest_straight: Option<Rank> = None;
 
-    for i in 0..=sorted_ranks.len() - 5 {
+    for i in 0..sorted_ranks.len().saturating_sub(4) {
         let window = &sorted_ranks[i..i + 5];
         let is_consecutive = window.windows(2).all(|w| (w[1] as u8) - (w[0] as u8) == 1);
         if is_consecutive {
