@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use rand::prelude::*;
+use rand::{seq::SliceRandom, thread_rng};
 
 mod poker_logic;
 use poker_logic::{determine_winner, Card, Deck, PokerRound};
@@ -755,7 +755,7 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
         return;
     }
 
-    let action = actions.choose(&mut rand::thread_rng()).unwrap();
+    let action = actions.choose(&mut thread_rng()).unwrap();
     game_state.last_action = format!("P{}: {}", game_state.current_player + 1, action.as_str());
 
     match action {

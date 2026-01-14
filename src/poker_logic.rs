@@ -154,10 +154,6 @@ fn find_straight_high(ranks: &HashSet<Rank>) -> Option<Rank> {
         && ranks.contains(&Rank::Five)
         && ranks.contains(&Rank::Ace);
 
-    if has_wheel {
-        return Some(Rank::Five);
-    }
-
     let mut sorted_ranks: Vec<Rank> = ranks.iter().copied().collect();
     sorted_ranks.sort();
 
@@ -171,7 +167,7 @@ fn find_straight_high(ranks: &HashSet<Rank>) -> Option<Rank> {
         }
     }
 
-    highest_straight
+    highest_straight.or(if has_wheel { Some(Rank::Five) } else { None })
 }
 
 impl Default for Deck {
@@ -287,12 +283,13 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
             let flush_ranks: Vec<Rank> = flush_cards.iter().map(|c| c.rank).collect();
             let flush_unique: HashSet<Rank> = flush_ranks.iter().copied().collect();
 
-            let straight_high = find_straight_high(&flush_unique).unwrap_or(Rank::Five);
-            return EvaluatedHand {
-                hand_rank: HandRank::StraightFlush,
-                primary_values: vec![straight_high],
-                kickers: Vec::new(),
-            };
+            if let Some(straight_high) = find_straight_high(&flush_unique) {
+                return EvaluatedHand {
+                    hand_rank: HandRank::StraightFlush,
+                    primary_values: vec![straight_high],
+                    kickers: Vec::new(),
+                };
+            }
         }
     }
 
