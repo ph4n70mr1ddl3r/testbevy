@@ -2,6 +2,9 @@
 name = "poker_simulation"
 version = "0.1.0"
 edition = "2021"
+description = "Heads-Up Texas Hold'em poker simulation with 2D graphics and animations"
+repository = "https://github.com/anomalyco/poker_simulation"
+authors = ["Poker Simulation Contributors"]
 
 [dependencies]
 bevy = "0.14"

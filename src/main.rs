@@ -61,6 +61,39 @@ impl Default for GameConfig {
     }
 }
 
+#[derive(Clone, Copy)]
+struct ColorPalette {
+    card_text_red: Color,
+    card_text_black: Color,
+    table_green_dark: Color,
+    table_green_light: Color,
+    face_up_white: Color,
+    face_down_dark: Color,
+    text_gray_dim: Color,
+    text_gray_light: Color,
+    text_gray_med: Color,
+    text_white: Color,
+    chip_gold: Color,
+}
+
+impl Default for ColorPalette {
+    fn default() -> Self {
+        ColorPalette {
+            card_text_red: Color::srgb(0.85, 0.0, 0.0),
+            card_text_black: Color::srgb(0.1, 0.1, 0.1),
+            table_green_dark: Color::srgb(0.12, 0.45, 0.18),
+            table_green_light: Color::srgb(0.18, 0.55, 0.22),
+            face_up_white: Color::srgb(0.98, 0.95, 0.95),
+            face_down_dark: Color::srgb(0.2, 0.3, 0.2),
+            text_gray_dim: Color::srgb(0.6, 0.6, 0.6),
+            text_gray_light: Color::srgb(0.8, 0.8, 0.8),
+            text_gray_med: Color::srgb(0.7, 0.7, 0.7),
+            text_white: Color::srgb(0.9, 0.9, 0.9),
+            chip_gold: Color::srgb(1.0, 0.85, 0.0),
+        }
+    }
+}
+
 const ANIMATION_CARD_DEAL_DELAY: f32 = 0.2;
 const ANIMATION_DEAL_DURATION: f32 = 0.5;
 const ANIMATION_COMMUNITY_DELAY_START: f32 = 0.9;
@@ -77,19 +110,6 @@ const ACTION_FONT_SIZE: f32 = 16.0;
 const COMMUNITY_CARD_FONT_SIZE: f32 = 12.0;
 const PLAYER_LABEL_FONT_SIZE: f32 = 20.0;
 const CHIP_LABEL_FONT_SIZE: f32 = 18.0;
-
-const CARD_TEXT_RED: (f32, f32, f32) = (0.85, 0.0, 0.0);
-const CARD_TEXT_BLACK: (f32, f32, f32) = (0.1, 0.1, 0.1);
-
-const TABLE_GREEN_DARK: (f32, f32, f32) = (0.12, 0.45, 0.18);
-const TABLE_GREEN_LIGHT: (f32, f32, f32) = (0.18, 0.55, 0.22);
-const FACE_UP_WHITE: (f32, f32, f32) = (0.98, 0.95, 0.95);
-const FACE_DOWN_DARK: (f32, f32, f32) = (0.2, 0.3, 0.2);
-const TEXT_GRAY_DIM: (f32, f32, f32) = (0.6, 0.6, 0.6);
-const TEXT_GRAY_LIGHT: (f32, f32, f32) = (0.8, 0.8, 0.8);
-const TEXT_GRAY_MED: (f32, f32, f32) = (0.7, 0.7, 0.7);
-const TEXT_WHITE: (f32, f32, f32) = (0.9, 0.9, 0.9);
-const CHIP_GOLD: (f32, f32, f32) = (1.0, 0.85, 0.0);
 
 const MIN_CARDS_FOR_RESHUFFLE: usize = 9;
 
@@ -287,7 +307,8 @@ fn start_hand(commands: &mut Commands, game_state: &mut GameStateResource) {
     }
 
     let config = GameConfig::default();
-    spawn_table(commands, config.screen_width, config.screen_height);
+    let colors = ColorPalette::default();
+    spawn_table(commands, config.screen_width, config.screen_height, colors);
 
     let player_y_top = config.screen_height * PLAYER_Y_TOP_RATIO;
     let player_y_bottom = config.screen_height * PLAYER_Y_BOTTOM_RATIO;
@@ -297,6 +318,7 @@ fn start_hand(commands: &mut Commands, game_state: &mut GameStateResource) {
             commands,
             game_state,
             &config,
+            &colors,
             id,
             0.0,
             if id == 0 {
@@ -308,17 +330,22 @@ fn start_hand(commands: &mut Commands, game_state: &mut GameStateResource) {
     }
 
     for i in 0..5 {
-        spawn_community_card(commands, game_state, &config, i);
+        spawn_community_card(commands, game_state, &config, &colors, i);
     }
 
-    spawn_ui(commands, game_state, &config);
+    spawn_ui(commands, game_state, &config, &colors);
 }
 
-fn spawn_table(commands: &mut Commands, screen_width: f32, screen_height: f32) {
+fn spawn_table(
+    commands: &mut Commands,
+    screen_width: f32,
+    screen_height: f32,
+    colors: ColorPalette,
+) {
     commands.spawn((
         SpriteBundle {
             sprite: Sprite {
-                color: Color::srgb(TABLE_GREEN_DARK.0, TABLE_GREEN_DARK.1, TABLE_GREEN_DARK.2),
+                color: colors.table_green_dark,
                 custom_size: Some(Vec2::new(
                     screen_width * TABLE_DARK_WIDTH_RATIO,
                     screen_height * TABLE_DARK_HEIGHT_RATIO,
@@ -334,11 +361,7 @@ fn spawn_table(commands: &mut Commands, screen_width: f32, screen_height: f32) {
     commands.spawn((
         SpriteBundle {
             sprite: Sprite {
-                color: Color::srgb(
-                    TABLE_GREEN_LIGHT.0,
-                    TABLE_GREEN_LIGHT.1,
-                    TABLE_GREEN_LIGHT.2,
-                ),
+                color: colors.table_green_light,
                 custom_size: Some(Vec2::new(
                     screen_width * TABLE_LIGHT_WIDTH_RATIO,
                     screen_height * TABLE_LIGHT_HEIGHT_RATIO,
@@ -356,6 +379,7 @@ fn spawn_player(
     commands: &mut Commands,
     game_state: &mut GameStateResource,
     config: &GameConfig,
+    colors: &ColorPalette,
     id: usize,
     x_pos: f32,
     y_pos: f32,
@@ -365,10 +389,12 @@ fn spawn_player(
     for j in 0..2 {
         let card_offset = (j as f32 - 0.5) * config.card_offset_spacing;
         let target_pos = Vec3::new(x_pos + card_offset, card_target_y, 1.0);
-        let card = game_state
-            .deck
-            .draw()
-            .expect("Failed to draw card from deck - deck should have sufficient cards");
+        let card = if let Some(c) = game_state.deck.draw() {
+            c
+        } else {
+            game_state.deck = Deck::new();
+            game_state.deck.draw().unwrap_or(Card::placeholder())
+        };
 
         if id == 0 {
             game_state.p1_hole[j] = card;
@@ -377,15 +403,15 @@ fn spawn_player(
         }
 
         let text_color = if card.is_red() {
-            Color::srgb(CARD_TEXT_RED.0, CARD_TEXT_RED.1, CARD_TEXT_RED.2)
+            colors.card_text_red
         } else {
-            Color::srgb(CARD_TEXT_BLACK.0, CARD_TEXT_BLACK.1, CARD_TEXT_BLACK.2)
+            colors.card_text_black
         };
 
         commands.spawn((
             SpriteBundle {
                 sprite: Sprite {
-                    color: Color::srgb(FACE_UP_WHITE.0, FACE_UP_WHITE.1, FACE_UP_WHITE.2),
+                    color: colors.face_up_white,
                     custom_size: Some(Vec2::new(config.card_width, config.card_height)),
                     ..default()
                 },
@@ -436,7 +462,7 @@ fn spawn_player(
                 chip_text,
                 TextStyle {
                     font_size: CHIP_LABEL_FONT_SIZE,
-                    color: Color::srgb(CHIP_GOLD.0, CHIP_GOLD.1, CHIP_GOLD.2),
+                    color: colors.chip_gold,
                     ..default()
                 },
             ),
@@ -501,14 +527,12 @@ fn spawn_community_card(
     commands: &mut Commands,
     game_state: &mut GameStateResource,
     config: &GameConfig,
+    colors: &ColorPalette,
     i: usize,
 ) {
     let x_offset = (i as f32 - 2.0) * config.card_offset_spacing;
     let community_card = if i < 3 {
-        game_state
-            .deck
-            .draw()
-            .expect("Failed to draw community card - deck should have sufficient cards")
+        game_state.deck.draw().unwrap_or(Card::placeholder())
     } else {
         Card::placeholder()
     };
@@ -523,9 +547,9 @@ fn spawn_community_card(
         SpriteBundle {
             sprite: Sprite {
                 color: if is_hidden {
-                    Color::srgb(FACE_DOWN_DARK.0, FACE_DOWN_DARK.1, FACE_DOWN_DARK.2)
+                    colors.face_down_dark
                 } else {
-                    Color::srgb(FACE_UP_WHITE.0, FACE_UP_WHITE.1, FACE_UP_WHITE.2)
+                    colors.face_up_white
                 },
                 custom_size: Some(Vec2::new(
                     config.card_width * config.community_card_scale,
@@ -561,9 +585,9 @@ fn spawn_community_card(
 
     if !is_hidden {
         let text_color = if community_card.is_red() {
-            Color::srgb(CARD_TEXT_RED.0, CARD_TEXT_RED.1, CARD_TEXT_RED.2)
+            colors.card_text_red
         } else {
-            Color::srgb(CARD_TEXT_BLACK.0, CARD_TEXT_BLACK.1, CARD_TEXT_BLACK.2)
+            colors.card_text_black
         };
         spawn_card_text(
             commands,
@@ -576,14 +600,19 @@ fn spawn_community_card(
     }
 }
 
-fn spawn_ui(commands: &mut Commands, game_state: &mut GameStateResource, config: &GameConfig) {
+fn spawn_ui(
+    commands: &mut Commands,
+    game_state: &mut GameStateResource,
+    config: &GameConfig,
+    colors: &ColorPalette,
+) {
     commands.spawn((
         Text2dBundle {
             text: Text::from_section(
                 format!("Pot: ${}", game_state.pot),
                 TextStyle {
                     font_size: POT_FONT_SIZE,
-                    color: Color::srgb(CHIP_GOLD.0, CHIP_GOLD.1, CHIP_GOLD.2),
+                    color: colors.chip_gold,
                     ..default()
                 },
             ),
@@ -600,7 +629,7 @@ fn spawn_ui(commands: &mut Commands, game_state: &mut GameStateResource, config:
                 format!("Hand: #{}", game_state.hand_number),
                 TextStyle {
                     font_size: HAND_NUMBER_FONT_SIZE,
-                    color: Color::srgb(TEXT_GRAY_DIM.0, TEXT_GRAY_DIM.1, TEXT_GRAY_DIM.2),
+                    color: colors.text_gray_dim,
                     ..default()
                 },
             ),
@@ -617,7 +646,7 @@ fn spawn_ui(commands: &mut Commands, game_state: &mut GameStateResource, config:
                 format!("Chips: ${}", game_state.player_chips[0]),
                 TextStyle {
                     font_size: PLAYER_CHIPS_FONT_SIZE,
-                    color: Color::srgb(TEXT_GRAY_LIGHT.0, TEXT_GRAY_LIGHT.1, TEXT_GRAY_LIGHT.2),
+                    color: colors.text_gray_light,
                     ..default()
                 },
             ),
@@ -634,7 +663,7 @@ fn spawn_ui(commands: &mut Commands, game_state: &mut GameStateResource, config:
                 format!("P2: ${}", game_state.player_chips[1]),
                 TextStyle {
                     font_size: OPPONENT_CHIPS_FONT_SIZE,
-                    color: Color::srgb(TEXT_GRAY_MED.0, TEXT_GRAY_MED.1, TEXT_GRAY_MED.2),
+                    color: colors.text_gray_med,
                     ..default()
                 },
             ),
@@ -651,7 +680,7 @@ fn spawn_ui(commands: &mut Commands, game_state: &mut GameStateResource, config:
                 get_round_name(game_state.current_round).to_string(),
                 TextStyle {
                     font_size: ROUND_FONT_SIZE,
-                    color: Color::srgb(TEXT_WHITE.0, TEXT_WHITE.1, TEXT_WHITE.2),
+                    color: colors.text_white,
                     ..default()
                 },
             ),
@@ -918,8 +947,9 @@ fn update_card_visuals(
     mut query: Query<(&mut Sprite, Option<&CommunityCard>)>,
     game_state: Res<GameStateResource>,
 ) {
-    let face_up_color = Color::srgb(FACE_UP_WHITE.0, FACE_UP_WHITE.1, FACE_UP_WHITE.2);
-    let face_down_color = Color::srgb(FACE_DOWN_DARK.0, FACE_DOWN_DARK.1, FACE_DOWN_DARK.2);
+    let colors = ColorPalette::default();
+    let face_up_color = colors.face_up_white;
+    let face_down_color = colors.face_down_dark;
 
     for (mut sprite, community_card) in query.iter_mut() {
         if let Some(cc) = community_card {
@@ -984,5 +1014,90 @@ fn update_ui(
 
     if let Some(mut text) = text_queries.p5().iter_mut().next() {
         text.sections[0].value = action_text;
+    }
+}
+
+#[cfg(test)]
+mod game_tests {
+    use super::*;
+
+    #[test]
+    fn test_game_config_defaults() {
+        let config = GameConfig::default();
+        assert_eq!(config.card_width, 55.0);
+        assert_eq!(config.card_height, 77.0);
+        assert_eq!(config.starting_chips, 1000);
+        assert_eq!(config.bet_amount, 50);
+        assert_eq!(config.raise_amount, 100);
+    }
+
+    #[test]
+    fn test_color_palette_defaults() {
+        let colors = ColorPalette::default();
+        assert_eq!(colors.card_text_red, Color::srgb(0.85, 0.0, 0.0));
+        assert_eq!(colors.card_text_black, Color::srgb(0.1, 0.1, 0.1));
+        assert_eq!(colors.chip_gold, Color::srgb(1.0, 0.85, 0.0));
+    }
+
+    #[test]
+    fn test_get_round_name() {
+        assert_eq!(get_round_name(PokerRound::PreFlop), "Pre-Flop");
+        assert_eq!(get_round_name(PokerRound::Flop), "Flop");
+        assert_eq!(get_round_name(PokerRound::Turn), "Turn");
+        assert_eq!(get_round_name(PokerRound::River), "River");
+        assert_eq!(get_round_name(PokerRound::Showdown), "Showdown");
+    }
+
+    #[test]
+    fn test_poker_action_as_str() {
+        assert_eq!(PokerAction::Check.as_str(), "Check");
+        assert_eq!(PokerAction::Bet.as_str(), "Bet 50");
+        assert_eq!(PokerAction::Call.as_str(), "Call");
+        assert_eq!(PokerAction::Raise.as_str(), "Raise 100");
+        assert_eq!(PokerAction::Fold.as_str(), "Fold");
+    }
+
+    #[test]
+    fn test_min_cards_for_reshuffle() {
+        assert_eq!(MIN_CARDS_FOR_RESHUFFLE, 9);
+    }
+
+    #[test]
+    fn test_animation_constants() {
+        assert!(ANIMATION_CARD_DEAL_DELAY > 0.0);
+        assert!(ANIMATION_DEAL_DURATION > 0.0);
+        assert!(ANIMATION_COMMUNITY_DURATION > 0.0);
+        assert!(ANIMATION_EASING_POWER > 0);
+    }
+
+    #[test]
+    fn test_font_sizes_are_reasonable() {
+        assert!(POT_FONT_SIZE > 0.0);
+        assert!(HAND_NUMBER_FONT_SIZE > 0.0);
+        assert!(PLAYER_CHIPS_FONT_SIZE > 0.0);
+        assert!(ROUND_FONT_SIZE > 0.0);
+        assert!(ACTION_FONT_SIZE > 0.0);
+    }
+
+    #[test]
+    fn test_z_positions_are_ordered() {
+        assert!(CARD_TEXT_Z_POSITION > CARD_Z_POSITION);
+        assert!(COMMUNITY_CARD_Z_POSITION < CARD_Z_POSITION);
+    }
+
+    #[test]
+    fn test_player_y_ratios() {
+        assert!(PLAYER_Y_TOP_RATIO > 0.0);
+        assert!(PLAYER_Y_BOTTOM_RATIO < 0.0);
+        assert_eq!(PLAYER_Y_TOP_RATIO, 0.25);
+        assert_eq!(PLAYER_Y_BOTTOM_RATIO, -0.32);
+    }
+
+    #[test]
+    fn test_table_dimensions() {
+        assert!(TABLE_DARK_WIDTH_RATIO > TABLE_LIGHT_WIDTH_RATIO);
+        assert!(TABLE_DARK_HEIGHT_RATIO > TABLE_LIGHT_HEIGHT_RATIO);
+        assert_eq!(TABLE_DARK_WIDTH_RATIO, 1.0);
+        assert_eq!(TABLE_LIGHT_WIDTH_RATIO, 0.94);
     }
 }
