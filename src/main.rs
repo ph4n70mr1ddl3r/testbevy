@@ -16,9 +16,9 @@ struct GameConfig {
     action_delay: f32,
     showdown_duration: f32,
     fold_showdown_duration: f32,
-    starting_chips: i32,
-    bet_amount: i32,
-    raise_amount: i32,
+    starting_chips: u32,
+    bet_amount: u32,
+    raise_amount: u32,
     screen_width: f32,
     screen_height: f32,
     pot_display_y: f32,
@@ -144,8 +144,8 @@ struct DealAnimation {
 #[derive(Resource, Default)]
 struct GameStateResource {
     deck: Deck,
-    pot: i32,
-    pot_remainder: i32,
+    pot: u32,
+    pot_remainder: u32,
     current_round: PokerRound,
     dealer_position: usize,
     current_player: usize,
@@ -153,11 +153,11 @@ struct GameStateResource {
     showdown_timer: f32,
     hand_number: i32,
     animation_start_time: f32,
-    player_chips: [i32; 2],
-    player_bets: [i32; 2],
-    current_bet: i32,
+    player_chips: [u32; 2],
+    player_bets: [u32; 2],
+    current_bet: u32,
     needs_cleanup: bool,
-    winner: Option<i32>,
+    winner: Option<usize>,
     last_winner_message: String,
     p1_hole: [Card; 2],
     p2_hole: [Card; 2],
@@ -248,6 +248,8 @@ fn setup_game(mut commands: Commands, mut game_state: ResMut<GameStateResource>)
     game_state.current_bet = 0;
     game_state.deck = Deck::new();
     game_state.pot_remainder = 0;
+    game_state.p1_hole = [Card::placeholder(); 2];
+    game_state.p2_hole = [Card::placeholder(); 2];
 }
 
 fn start_hand_system(
@@ -277,6 +279,8 @@ fn start_hand(commands: &mut Commands, game_state: &mut GameStateResource) {
     game_state.player_bets = [0, 0];
     game_state.current_bet = 0;
     game_state.winner = None;
+    game_state.p1_hole = [Card::placeholder(); 2];
+    game_state.p2_hole = [Card::placeholder(); 2];
 
     if game_state.deck.cards_remaining() < MIN_CARDS_FOR_RESHUFFLE {
         game_state.deck = Deck::new();
@@ -729,6 +733,21 @@ fn get_valid_actions(game_state: &GameStateResource, config: &GameConfig) -> Vec
     actions
 }
 
+fn place_bet(
+    game_state: &mut GameStateResource,
+    amount: u32,
+    is_raise: bool,
+    new_current_bet: u32,
+) {
+    let player_idx = game_state.current_player;
+    game_state.player_chips[player_idx] -= amount;
+    game_state.player_bets[player_idx] += amount;
+    game_state.pot += amount;
+    if is_raise {
+        game_state.current_bet = new_current_bet;
+    }
+}
+
 fn perform_validated_action(game_state: &mut GameStateResource, config: &GameConfig) {
     let actions = get_valid_actions(game_state, config);
     if actions.is_empty() {
@@ -746,10 +765,7 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
         PokerAction::Bet => {
             let bet_amount = config.bet_amount;
             if game_state.player_chips[game_state.current_player] >= bet_amount {
-                game_state.player_chips[game_state.current_player] -= bet_amount;
-                game_state.player_bets[game_state.current_player] += bet_amount;
-                game_state.current_bet = bet_amount;
-                game_state.pot += bet_amount;
+                place_bet(game_state, bet_amount, true, bet_amount);
                 game_state.current_player = (game_state.current_player + 1) % 2;
             }
         }
@@ -758,9 +774,7 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
                 game_state.current_bet - game_state.player_bets[game_state.current_player];
             if call_amount > 0 && game_state.player_chips[game_state.current_player] >= call_amount
             {
-                game_state.player_chips[game_state.current_player] -= call_amount;
-                game_state.player_bets[game_state.current_player] += call_amount;
-                game_state.pot += call_amount;
+                place_bet(game_state, call_amount, false, 0);
                 game_state.current_player = (game_state.current_player + 1) % 2;
             }
         }
@@ -768,16 +782,13 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
             let raise_amount = game_state.current_bet + config.raise_amount;
             let actual_raise = raise_amount - game_state.player_bets[game_state.current_player];
             if game_state.player_chips[game_state.current_player] >= actual_raise {
-                game_state.player_chips[game_state.current_player] -= actual_raise;
-                game_state.player_bets[game_state.current_player] = raise_amount;
-                game_state.current_bet = raise_amount;
-                game_state.pot += actual_raise;
+                place_bet(game_state, actual_raise, true, raise_amount);
                 game_state.current_player = (game_state.current_player + 1) % 2;
             }
         }
         PokerAction::Fold => {
             let winner = (game_state.current_player + 1) % 2;
-            game_state.winner = Some(winner as i32);
+            game_state.winner = Some(winner);
             game_state.player_chips[winner] += game_state.pot;
             game_state.player_chips[winner] += game_state.pot_remainder;
             game_state.last_winner_message = format!(
