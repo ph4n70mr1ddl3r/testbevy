@@ -78,7 +78,7 @@ const COMMUNITY_CARD_FONT_SIZE: f32 = 12.0;
 const PLAYER_LABEL_FONT_SIZE: f32 = 20.0;
 const CHIP_LABEL_FONT_SIZE: f32 = 18.0;
 
-const CARD_TEXT_RED: f32 = 0.85;
+const CARD_TEXT_RED: (f32, f32, f32) = (0.85, 0.0, 0.0);
 const CARD_TEXT_BLACK: (f32, f32, f32) = (0.1, 0.1, 0.1);
 
 const TABLE_GREEN_DARK: (f32, f32, f32) = (0.12, 0.45, 0.18);
@@ -377,7 +377,7 @@ fn spawn_player(
         }
 
         let text_color = if card.is_red() {
-            Color::srgb(CARD_TEXT_RED, 0.0, CARD_TEXT_BLACK.2)
+            Color::srgb(CARD_TEXT_RED.0, CARD_TEXT_RED.1, CARD_TEXT_RED.2)
         } else {
             Color::srgb(CARD_TEXT_BLACK.0, CARD_TEXT_BLACK.1, CARD_TEXT_BLACK.2)
         };
@@ -561,7 +561,7 @@ fn spawn_community_card(
 
     if !is_hidden {
         let text_color = if community_card.is_red() {
-            Color::srgb(CARD_TEXT_RED, 0.0, CARD_TEXT_BLACK.2)
+            Color::srgb(CARD_TEXT_RED.0, CARD_TEXT_RED.1, CARD_TEXT_RED.2)
         } else {
             Color::srgb(CARD_TEXT_BLACK.0, CARD_TEXT_BLACK.1, CARD_TEXT_BLACK.2)
         };
