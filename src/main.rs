@@ -272,22 +272,9 @@ fn setup_game(mut commands: Commands, mut game_state: ResMut<GameStateResource>)
     game_state.p2_hole = [Card::placeholder(); 2];
 }
 
-fn start_hand_system(
-    mut commands: Commands,
-    mut game_state: ResMut<GameStateResource>,
-    time: Res<Time>,
-) {
-    if game_state.hand_number == 1 || game_state.showdown_timer < -0.5 {
-        game_state.needs_cleanup = true;
-        game_state.animation_start_time = time.elapsed_seconds();
-        game_state.showdown_timer = 0.0;
-        game_state.winner = None;
-        game_state.last_winner_message.clear();
-        start_hand(&mut commands, &mut game_state);
-    }
-}
-
 fn start_hand(commands: &mut Commands, game_state: &mut GameStateResource) {
+    let config = GameConfig::default();
+    let colors = ColorPalette::default();
     game_state.pot = 0;
     game_state.pot_remainder = 0;
     game_state.current_round = PokerRound::PreFlop;
@@ -306,8 +293,6 @@ fn start_hand(commands: &mut Commands, game_state: &mut GameStateResource) {
         game_state.deck = Deck::new();
     }
 
-    let config = GameConfig::default();
-    let colors = ColorPalette::default();
     spawn_table(commands, config.screen_width, config.screen_height, colors);
 
     let player_y_top = config.screen_height * PLAYER_Y_TOP_RATIO;
@@ -334,6 +319,21 @@ fn start_hand(commands: &mut Commands, game_state: &mut GameStateResource) {
     }
 
     spawn_ui(commands, game_state, &config, &colors);
+}
+
+fn start_hand_system(
+    mut commands: Commands,
+    mut game_state: ResMut<GameStateResource>,
+    time: Res<Time>,
+) {
+    if game_state.hand_number == 1 || game_state.showdown_timer < -0.5 {
+        game_state.needs_cleanup = true;
+        game_state.animation_start_time = time.elapsed_seconds();
+        game_state.showdown_timer = 0.0;
+        game_state.winner = None;
+        game_state.last_winner_message.clear();
+        start_hand(&mut commands, &mut game_state);
+    }
 }
 
 fn spawn_table(
@@ -396,11 +396,12 @@ fn spawn_player(
             game_state.deck.draw().unwrap_or(Card::placeholder())
         };
 
-        if id == 0 {
-            game_state.p1_hole[j] = card;
+        let player_hole = if id == 0 {
+            &mut game_state.p1_hole
         } else {
-            game_state.p2_hole[j] = card;
-        }
+            &mut game_state.p2_hole
+        };
+        player_hole[j] = card;
 
         let text_color = if card.is_red() {
             colors.card_text_red
@@ -900,46 +901,56 @@ fn check_game_flow(mut game_state: ResMut<GameStateResource>, time: Res<Time>) {
 fn handle_showdown(mut commands: Commands, mut game_state: ResMut<GameStateResource>) {
     if game_state.current_round == PokerRound::Showdown && game_state.showdown_timer <= 0.0 {
         if game_state.winner.is_none() {
-            let result = determine_winner(
-                &game_state.p1_hole,
-                &game_state.p2_hole,
-                &game_state.community_cards,
-            );
-            match result {
-                (0, true) => {
-                    game_state.winner = Some(0);
-                    let total_pot = game_state.pot + game_state.pot_remainder;
-                    game_state.player_chips[0] += total_pot;
-                    game_state.last_winner_message = format!("P1 wins ${}!", total_pot);
-                }
-                (1, true) => {
-                    game_state.winner = Some(1);
-                    let total_pot = game_state.pot + game_state.pot_remainder;
-                    game_state.player_chips[1] += total_pot;
-                    game_state.last_winner_message = format!("P2 wins ${}!", total_pot);
-                }
-                _ => {
-                    let split_amount = game_state.pot / 2;
-                    let remainder = game_state.pot % 2;
-                    game_state.player_chips[0] += split_amount;
-                    game_state.player_chips[1] += split_amount;
-                    game_state.pot_remainder += remainder;
-                    game_state.last_winner_message =
-                        format!("Split pot - each wins ${}", split_amount);
-                    if remainder > 0 {
-                        game_state
-                            .last_winner_message
-                            .push_str(&format!(" ({} remainder)", remainder));
-                    }
-                }
-            }
-            game_state.pot = 0;
-            game_state.pot_remainder = 0;
+            process_showdown_result(&mut game_state);
         }
 
         game_state.current_round = PokerRound::PreFlop;
         game_state.showdown_timer = -1.0;
         start_hand(&mut commands, &mut game_state);
+    }
+}
+
+fn process_showdown_result(game_state: &mut GameStateResource) {
+    let result = determine_winner(
+        &game_state.p1_hole,
+        &game_state.p2_hole,
+        &game_state.community_cards,
+    );
+
+    match result {
+        (0, true) => {
+            game_state.winner = Some(0);
+            distribute_pot(game_state, 0);
+        }
+        (1, true) => {
+            game_state.winner = Some(1);
+            distribute_pot(game_state, 1);
+        }
+        _ => {
+            split_pot(game_state);
+        }
+    }
+    game_state.pot = 0;
+    game_state.pot_remainder = 0;
+}
+
+fn distribute_pot(game_state: &mut GameStateResource, winner: usize) {
+    let total_pot = game_state.pot + game_state.pot_remainder;
+    game_state.player_chips[winner] += total_pot;
+    game_state.last_winner_message = format!("P{} wins ${}!", winner + 1, total_pot);
+}
+
+fn split_pot(game_state: &mut GameStateResource) {
+    let split_amount = game_state.pot / 2;
+    let remainder = game_state.pot % 2;
+    game_state.player_chips[0] += split_amount;
+    game_state.player_chips[1] += split_amount;
+    game_state.pot_remainder += remainder;
+    game_state.last_winner_message = format!("Split pot - each wins ${}", split_amount);
+    if remainder > 0 {
+        game_state
+            .last_winner_message
+            .push_str(&format!(" ({} remainder)", remainder));
     }
 }
 

@@ -213,12 +213,8 @@ impl EvaluatedHand {
 }
 
 pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
-    let mut cards: Vec<Card> = cards
-        .iter()
-        .filter(|c| !c.is_placeholder)
-        .cloned()
-        .collect();
-    if cards.len() < 5 {
+    let non_placeholder_count = cards.iter().filter(|c| !c.is_placeholder).count();
+    if non_placeholder_count < 5 {
         return EvaluatedHand {
             hand_rank: HandRank::HighCard,
             primary_values: Vec::new(),
@@ -226,6 +222,11 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
         };
     }
 
+    let mut cards: Vec<Card> = cards
+        .iter()
+        .filter(|c| !c.is_placeholder)
+        .cloned()
+        .collect();
     cards.sort_by_key(|c| c.rank);
 
     let suit_counts: HashMap<Suit, usize> = {
