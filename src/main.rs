@@ -254,14 +254,18 @@ fn main() {
                 handle_showdown,
                 update_card_visuals,
                 update_ui,
-            ),
+            )
+                .chain(),
         )
         .run();
 }
 
-fn setup_game(mut commands: Commands, mut game_state: ResMut<GameStateResource>) {
-    let config = GameConfig::default();
-    commands.spawn((Camera2dBundle::default(), HandMarker));
+fn setup_game(
+    mut commands: Commands,
+    mut game_state: ResMut<GameStateResource>,
+    config: Res<GameConfig>,
+) {
+    commands.spawn((Camera2d, HandMarker));
     game_state.hand_number = 1;
     game_state.player_chips = [config.starting_chips, config.starting_chips];
     game_state.player_bets = [0, 0];
@@ -886,7 +890,7 @@ fn update_animations(
 
         if anim_elapsed > 0.0 {
             let t = (anim_elapsed / anim.duration).min(1.0);
-            let eased = 1.0 - (1.0 - t).powi(ANIMATION_EASING_POWER);
+            let eased = 1.0 - (1.0 - t).powi(ANIMATION_EASING_POWER as i32);
             transform.translation = anim.start_pos.lerp(anim.target_pos, eased);
 
             if t >= 1.0 {
