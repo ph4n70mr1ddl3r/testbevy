@@ -148,11 +148,8 @@ fn find_straight_high(ranks: &HashSet<Rank>) -> Option<Rank> {
         return None;
     }
 
-    let has_wheel = ranks.contains(&Rank::Two)
-        && ranks.contains(&Rank::Three)
-        && ranks.contains(&Rank::Four)
-        && ranks.contains(&Rank::Five)
-        && ranks.contains(&Rank::Ace);
+    const WHEEL_RANKS: [Rank; 5] = [Rank::Two, Rank::Three, Rank::Four, Rank::Five, Rank::Ace];
+    let has_wheel = WHEEL_RANKS.iter().all(|r| ranks.contains(r));
 
     let mut sorted_ranks: Vec<Rank> = ranks.iter().copied().collect();
     sorted_ranks.sort();
@@ -301,7 +298,7 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
             .copied()
             .max()
             .map(|r| vec![r])
-            .unwrap_or_else(Vec::new);
+            .unwrap_or_default();
         return EvaluatedHand {
             hand_rank: HandRank::FourOfAKind,
             primary_values: vec![four],

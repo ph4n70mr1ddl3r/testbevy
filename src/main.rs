@@ -218,13 +218,13 @@ enum PokerAction {
 }
 
 impl PokerAction {
-    fn as_str(&self) -> &'static str {
+    fn as_str(&self, config: &GameConfig) -> String {
         match self {
-            PokerAction::Check => "Check",
-            PokerAction::Bet => "Bet 50",
-            PokerAction::Call => "Call",
-            PokerAction::Raise => "Raise 100",
-            PokerAction::Fold => "Fold",
+            PokerAction::Check => "Check".to_string(),
+            PokerAction::Bet => format!("Bet {}", config.bet_amount),
+            PokerAction::Call => "Call".to_string(),
+            PokerAction::Raise => format!("Raise {}", config.raise_amount),
+            PokerAction::Fold => "Fold".to_string(),
         }
     }
 }
@@ -786,7 +786,11 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
     }
 
     let action = actions.choose(&mut thread_rng()).unwrap();
-    game_state.last_action = format!("P{}: {}", game_state.current_player + 1, action.as_str());
+    game_state.last_action = format!(
+        "P{}: {}",
+        game_state.current_player + 1,
+        action.as_str(config)
+    );
 
     match action {
         PokerAction::Check => {
@@ -1061,11 +1065,12 @@ mod game_tests {
 
     #[test]
     fn test_poker_action_as_str() {
-        assert_eq!(PokerAction::Check.as_str(), "Check");
-        assert_eq!(PokerAction::Bet.as_str(), "Bet 50");
-        assert_eq!(PokerAction::Call.as_str(), "Call");
-        assert_eq!(PokerAction::Raise.as_str(), "Raise 100");
-        assert_eq!(PokerAction::Fold.as_str(), "Fold");
+        let config = GameConfig::default();
+        assert_eq!(PokerAction::Check.as_str(&config), "Check");
+        assert_eq!(PokerAction::Bet.as_str(&config), "Bet 50");
+        assert_eq!(PokerAction::Call.as_str(&config), "Call");
+        assert_eq!(PokerAction::Raise.as_str(&config), "Raise 100");
+        assert_eq!(PokerAction::Fold.as_str(&config), "Fold");
     }
 
     #[test]
