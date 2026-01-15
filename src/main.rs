@@ -61,7 +61,7 @@ impl Default for GameConfig {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Resource)]
 struct ColorPalette {
     card_text_red: Color,
     card_text_black: Color,
@@ -276,9 +276,12 @@ fn setup_game(
     game_state.p2_hole = [Card::placeholder(); 2];
 }
 
-fn start_hand(commands: &mut Commands, game_state: &mut GameStateResource) {
-    let config = GameConfig::default();
-    let colors = ColorPalette::default();
+fn start_hand(
+    commands: &mut Commands,
+    game_state: &mut GameStateResource,
+    config: &GameConfig,
+    colors: ColorPalette,
+) {
     game_state.pot = 0;
     game_state.pot_remainder = 0;
     game_state.current_round = PokerRound::PreFlop;
@@ -328,6 +331,8 @@ fn start_hand(commands: &mut Commands, game_state: &mut GameStateResource) {
 fn start_hand_system(
     mut commands: Commands,
     mut game_state: ResMut<GameStateResource>,
+    config: Res<GameConfig>,
+    colors: Res<ColorPalette>,
     time: Res<Time>,
 ) {
     if game_state.hand_number == 1 || game_state.showdown_timer < -0.5 {
@@ -336,7 +341,7 @@ fn start_hand_system(
         game_state.showdown_timer = 0.0;
         game_state.winner = None;
         game_state.last_winner_message.clear();
-        start_hand(&mut commands, &mut game_state);
+        start_hand(&mut commands, &mut game_state, &*config, *colors);
     }
 }
 
@@ -906,7 +911,12 @@ fn check_game_flow(mut game_state: ResMut<GameStateResource>, time: Res<Time>) {
     }
 }
 
-fn handle_showdown(mut commands: Commands, mut game_state: ResMut<GameStateResource>) {
+fn handle_showdown(
+    mut commands: Commands,
+    mut game_state: ResMut<GameStateResource>,
+    config: Res<GameConfig>,
+    colors: Res<ColorPalette>,
+) {
     if game_state.current_round == PokerRound::Showdown && game_state.showdown_timer <= 0.0 {
         if game_state.winner.is_none() {
             process_showdown_result(&mut game_state);
@@ -914,7 +924,7 @@ fn handle_showdown(mut commands: Commands, mut game_state: ResMut<GameStateResou
 
         game_state.current_round = PokerRound::PreFlop;
         game_state.showdown_timer = -1.0;
-        start_hand(&mut commands, &mut game_state);
+        start_hand(&mut commands, &mut game_state, &*config, *colors);
     }
 }
 
