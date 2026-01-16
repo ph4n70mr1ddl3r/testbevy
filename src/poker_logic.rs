@@ -1,4 +1,4 @@
-use rand::seq::SliceRandom;
+use rand::{seq::SliceRandom, thread_rng};
 use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -130,7 +130,7 @@ impl Deck {
                 cards.push(Card::new(rank, suit));
             }
         }
-        cards.shuffle(&mut rand::thread_rng());
+        cards.shuffle(&mut thread_rng());
         Deck { cards }
     }
 
