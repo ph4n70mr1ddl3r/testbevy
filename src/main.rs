@@ -270,10 +270,7 @@ fn setup_game(
     game_state.player_chips = [config.starting_chips, config.starting_chips];
     game_state.player_bets = [0, 0];
     game_state.current_bet = 0;
-    game_state.deck = Deck::new();
     game_state.pot_remainder = 0;
-    game_state.p1_hole = [Card::placeholder(); 2];
-    game_state.p2_hole = [Card::placeholder(); 2];
 }
 
 fn start_hand(
@@ -293,8 +290,6 @@ fn start_hand(
     game_state.player_bets = [0, 0];
     game_state.current_bet = 0;
     game_state.winner = None;
-    game_state.p1_hole = [Card::placeholder(); 2];
-    game_state.p2_hole = [Card::placeholder(); 2];
 
     if game_state.deck.cards_remaining() < MIN_CARDS_FOR_RESHUFFLE {
         game_state.deck = Deck::new();
