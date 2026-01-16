@@ -183,6 +183,9 @@ pub enum PokerRound {
     Showdown,
 }
 
+/// Represents the ranking of a poker hand.
+/// The derived `Ord` implementation follows standard poker hand rankings:
+/// HighCard < Pair < TwoPair < ThreeOfAKind < Straight < Flush < FullHouse < FourOfAKind < StraightFlush
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum HandRank {
     HighCard,

@@ -309,7 +309,7 @@ fn start_hand(
         spawn_player(
             commands,
             game_state,
-            &config,
+            config,
             &colors,
             id,
             0.0,
@@ -322,10 +322,10 @@ fn start_hand(
     }
 
     for i in 0..5 {
-        spawn_community_card(commands, game_state, &config, &colors, i);
+        spawn_community_card(commands, game_state, config, &colors, i);
     }
 
-    spawn_ui(commands, game_state, &config, &colors);
+    spawn_ui(commands, game_state, config, &colors);
 }
 
 fn start_hand_system(
@@ -341,7 +341,7 @@ fn start_hand_system(
         game_state.showdown_timer = 0.0;
         game_state.winner = None;
         game_state.last_winner_message.clear();
-        start_hand(&mut commands, &mut game_state, &*config, *colors);
+        start_hand(&mut commands, &mut game_state, &config, *colors);
     }
 }
 
@@ -895,7 +895,7 @@ fn update_animations(
 
         if anim_elapsed > 0.0 {
             let t = (anim_elapsed / anim.duration).min(1.0);
-            let eased = 1.0 - (1.0 - t).powi(ANIMATION_EASING_POWER as i32);
+            let eased = 1.0 - (1.0 - t).powi(ANIMATION_EASING_POWER);
             transform.translation = anim.start_pos.lerp(anim.target_pos, eased);
 
             if t >= 1.0 {
@@ -924,7 +924,7 @@ fn handle_showdown(
 
         game_state.current_round = PokerRound::PreFlop;
         game_state.showdown_timer = -1.0;
-        start_hand(&mut commands, &mut game_state, &*config, *colors);
+        start_hand(&mut commands, &mut game_state, &config, *colors);
     }
 }
 
@@ -975,8 +975,8 @@ fn split_pot(game_state: &mut GameStateResource) {
 fn update_card_visuals(
     mut query: Query<(&mut Sprite, Option<&CommunityCard>)>,
     game_state: Res<GameStateResource>,
+    colors: Res<ColorPalette>,
 ) {
-    let colors = ColorPalette::default();
     let face_up_color = colors.face_up_white;
     let face_down_color = colors.face_down_dark;
 
