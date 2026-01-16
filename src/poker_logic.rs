@@ -54,14 +54,6 @@ impl Card {
         }
     }
 
-    pub fn placeholder() -> Self {
-        Card {
-            rank: Rank::Two,
-            suit: Suit::Hearts,
-            is_placeholder: true,
-        }
-    }
-
     pub fn rank_str(&self) -> &'static str {
         match self.rank {
             Rank::Two => "2",
@@ -808,7 +800,7 @@ mod tests {
 
     #[test]
     fn test_card_is_placeholder() {
-        let placeholder = Card::placeholder();
+        let placeholder = Card::default();
         assert!(placeholder.is_placeholder);
 
         let real_card = Card::new(Rank::Ace, Suit::Spades);

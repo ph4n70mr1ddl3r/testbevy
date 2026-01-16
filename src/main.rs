@@ -488,7 +488,6 @@ fn spawn_card_text_entity(
     rotation: f32,
     text_color: Color,
     font_size: f32,
-    _config: &GameConfig,
 ) {
     commands.spawn((
         Text2dBundle {
@@ -529,7 +528,6 @@ fn spawn_card_text(
         0.0,
         text_color,
         font_size,
-        config,
     );
 
     spawn_card_text_entity(
@@ -541,7 +539,6 @@ fn spawn_card_text(
         std::f32::consts::PI,
         text_color,
         font_size,
-        config,
     );
 }
 
@@ -553,11 +550,7 @@ fn spawn_community_card(
     i: usize,
 ) {
     let x_offset = (i as f32 - 2.0) * config.card_offset_spacing;
-    let community_card = if i < 3 {
-        game_state.deck.draw().unwrap()
-    } else {
-        Card::placeholder()
-    };
+    let community_card = game_state.deck.draw().unwrap();
 
     game_state.community_cards[i] = community_card;
 
