@@ -112,6 +112,7 @@ const PLAYER_LABEL_FONT_SIZE: f32 = 20.0;
 const CHIP_LABEL_FONT_SIZE: f32 = 18.0;
 
 const MIN_CARDS_FOR_RESHUFFLE: usize = 9;
+const PLAYER_COUNT: usize = 2;
 
 const PLAYER_Y_TOP_RATIO: f32 = 0.25;
 const PLAYER_Y_BOTTOM_RATIO: f32 = -0.32;
@@ -267,10 +268,10 @@ fn setup_game(
 ) {
     commands.spawn((Camera2d, HandMarker));
     game_state.hand_number = 1;
-    game_state.player_chips = [config.starting_chips, config.starting_chips];
-    game_state.player_bets = [0, 0];
+    game_state.player_chips = [config.starting_chips; PLAYER_COUNT];
+    game_state.player_bets = [0; PLAYER_COUNT];
     game_state.current_bet = 0;
-    game_state.pot_remainder = 0;
+    game_state.winner = None;
 }
 
 fn start_hand(
@@ -285,9 +286,9 @@ fn start_hand(
     game_state.last_action = format!("Hand #{}", game_state.hand_number);
     game_state.hand_number += 1;
     game_state.showdown_timer = 0.0;
-    game_state.dealer_position = (game_state.dealer_position + 1) % 2;
-    game_state.current_player = (game_state.dealer_position + 1) % 2;
-    game_state.player_bets = [0, 0];
+    game_state.dealer_position = (game_state.dealer_position + 1) % PLAYER_COUNT;
+    game_state.current_player = (game_state.dealer_position + 1) % PLAYER_COUNT;
+    game_state.player_bets = [0; PLAYER_COUNT];
     game_state.current_bet = 0;
     game_state.winner = None;
 
@@ -300,7 +301,7 @@ fn start_hand(
     let player_y_top = config.screen_height * PLAYER_Y_TOP_RATIO;
     let player_y_bottom = config.screen_height * PLAYER_Y_BOTTOM_RATIO;
 
-    for id in 0..2 {
+    for id in 0..PLAYER_COUNT {
         spawn_player(
             commands,
             game_state,
@@ -397,7 +398,7 @@ fn spawn_player(
             c
         } else {
             game_state.deck = Deck::new();
-            game_state.deck.draw().unwrap_or(Card::placeholder())
+            game_state.deck.draw().unwrap()
         };
 
         let player_hole = if id == 0 {
@@ -478,13 +479,16 @@ fn spawn_player(
     ));
 }
 
-fn spawn_card_text(
+fn spawn_card_text_entity(
     commands: &mut Commands,
     card: Card,
     target_pos: Vec3,
+    offset_x: f32,
+    offset_y: f32,
+    rotation: f32,
     text_color: Color,
     font_size: f32,
-    config: &GameConfig,
+    _config: &GameConfig,
 ) {
     commands.spawn((
         Text2dBundle {
@@ -497,35 +501,48 @@ fn spawn_card_text(
                 },
             ),
             transform: Transform::from_xyz(
-                target_pos.x - config.card_width / 2.0 + CARD_TEXT_TOP_OFFSET_X,
-                target_pos.y + config.card_height / 2.0 + CARD_TEXT_TOP_OFFSET_Y,
-                CARD_TEXT_Z_POSITION,
-            ),
-            ..default()
-        },
-        HandMarker,
-    ));
-
-    commands.spawn((
-        Text2dBundle {
-            text: Text::from_section(
-                format!("{}\n{}", card.rank_str(), card.suit_str()),
-                TextStyle {
-                    font_size,
-                    color: text_color,
-                    ..default()
-                },
-            ),
-            transform: Transform::from_xyz(
-                target_pos.x + config.card_width / 2.0 + CARD_TEXT_BOTTOM_OFFSET_X,
-                target_pos.y - config.card_height / 2.0 + CARD_TEXT_BOTTOM_OFFSET_Y,
+                target_pos.x + offset_x,
+                target_pos.y + offset_y,
                 CARD_TEXT_Z_POSITION,
             )
-            .with_rotation(Quat::from_rotation_z(std::f32::consts::PI)),
+            .with_rotation(Quat::from_rotation_z(rotation)),
             ..default()
         },
         HandMarker,
     ));
+}
+
+fn spawn_card_text(
+    commands: &mut Commands,
+    card: Card,
+    target_pos: Vec3,
+    text_color: Color,
+    font_size: f32,
+    config: &GameConfig,
+) {
+    spawn_card_text_entity(
+        commands,
+        card,
+        target_pos,
+        -config.card_width / 2.0 + CARD_TEXT_TOP_OFFSET_X,
+        config.card_height / 2.0 + CARD_TEXT_TOP_OFFSET_Y,
+        0.0,
+        text_color,
+        font_size,
+        config,
+    );
+
+    spawn_card_text_entity(
+        commands,
+        card,
+        target_pos,
+        config.card_width / 2.0 + CARD_TEXT_BOTTOM_OFFSET_X,
+        -config.card_height / 2.0 + CARD_TEXT_BOTTOM_OFFSET_Y,
+        std::f32::consts::PI,
+        text_color,
+        font_size,
+        config,
+    );
 }
 
 fn spawn_community_card(
@@ -537,7 +554,7 @@ fn spawn_community_card(
 ) {
     let x_offset = (i as f32 - 2.0) * config.card_offset_spacing;
     let community_card = if i < 3 {
-        game_state.deck.draw().unwrap_or(Card::placeholder())
+        game_state.deck.draw().unwrap()
     } else {
         Card::placeholder()
     };
@@ -798,13 +815,13 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
 
     match action {
         PokerAction::Check => {
-            game_state.current_player = (game_state.current_player + 1) % 2;
+            game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
         }
         PokerAction::Bet => {
             let bet_amount = config.bet_amount;
             if game_state.player_chips[game_state.current_player] >= bet_amount {
                 place_bet(game_state, bet_amount, true, bet_amount);
-                game_state.current_player = (game_state.current_player + 1) % 2;
+                game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
             }
         }
         PokerAction::Call => {
@@ -813,7 +830,7 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
             if call_amount > 0 && game_state.player_chips[game_state.current_player] >= call_amount
             {
                 place_bet(game_state, call_amount, false, 0);
-                game_state.current_player = (game_state.current_player + 1) % 2;
+                game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
             }
         }
         PokerAction::Raise => {
@@ -821,7 +838,7 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
             let actual_raise = raise_amount - game_state.player_bets[game_state.current_player];
             if game_state.player_chips[game_state.current_player] >= actual_raise {
                 place_bet(game_state, actual_raise, true, raise_amount);
-                game_state.current_player = (game_state.current_player + 1) % 2;
+                game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
             }
         }
         PokerAction::Fold => {
@@ -871,7 +888,7 @@ fn advance_street(game_state: &mut GameStateResource, config: &GameConfig) {
 
         if game_state.current_round != PokerRound::Showdown {
             game_state.current_bet = 0;
-            game_state.player_bets = [0, 0];
+            game_state.player_bets = [0; PLAYER_COUNT];
             game_state.current_player = game_state.dealer_position;
             game_state.pot_remainder = 0;
         }
