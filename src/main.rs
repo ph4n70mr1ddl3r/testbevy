@@ -404,16 +404,7 @@ fn spawn_player(
     for j in 0..2 {
         let card_offset = (j as f32 - 0.5) * config.card_offset_spacing;
         let target_pos = Vec3::new(x_pos + card_offset, card_target_y, 1.0);
-        let card = if let Some(c) = game_state.deck.draw() {
-            c
-        } else {
-            error!("Deck empty during player deal - creating emergency deck");
-            game_state.deck = Deck::new();
-            game_state.deck.draw().unwrap_or_else(|| {
-                error!("Emergency deck creation failed - using placeholder card");
-                Card::default()
-            })
-        };
+        let card = draw_card(game_state);
 
         let player_hole = if id == 0 {
             &mut game_state.p1_hole
@@ -565,16 +556,7 @@ fn spawn_community_card(
     animation_start_time: f32,
 ) {
     let x_offset = (i as f32 - 2.0) * config.card_offset_spacing;
-    let community_card = if let Some(c) = game_state.deck.draw() {
-        c
-    } else {
-        error!("Deck empty during community card deal - creating emergency deck");
-        game_state.deck = Deck::new();
-        game_state.deck.draw().unwrap_or_else(|| {
-            error!("Emergency deck creation failed - using placeholder card");
-            Card::default()
-        })
-    };
+    let community_card = draw_card(game_state);
 
     game_state.community_cards[i] = community_card;
 
@@ -790,7 +772,8 @@ fn get_valid_actions(game_state: &GameStateResource, config: &GameConfig) -> Vec
         if player_chips >= call_amount && call_amount > 0 {
             actions.push(PokerAction::Call);
         }
-        if player_chips > current_bet {
+        let raise_cost = call_amount + config.raise_amount;
+        if player_chips >= raise_cost {
             actions.push(PokerAction::Raise);
         }
     } else if player_chips >= config.bet_amount {
@@ -894,14 +877,26 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
     advance_street(game_state, config);
 }
 
+fn draw_card(game_state: &mut GameStateResource) -> Card {
+    if let Some(c) = game_state.deck.draw() {
+        c
+    } else {
+        error!("Deck empty - creating emergency deck");
+        game_state.deck = Deck::new();
+        game_state.deck.draw().unwrap_or_else(|| {
+            error!("Emergency deck creation failed - using placeholder card");
+            Card::default()
+        })
+    }
+}
+
 fn advance_street(game_state: &mut GameStateResource, config: &GameConfig) {
-    let both_players_acted = game_state.player_bets[0] == game_state.current_bet
-        && game_state.player_bets[1] == game_state.current_bet
-        && game_state.current_bet > 0;
+    let both_players_matched_bet = game_state.player_bets[0] == game_state.current_bet
+        && game_state.player_bets[1] == game_state.current_bet;
 
     let can_check = game_state.current_bet == 0;
 
-    if both_players_acted || can_check {
+    if both_players_matched_bet || can_check {
         match game_state.current_round {
             PokerRound::PreFlop => game_state.current_round = PokerRound::Flop,
             PokerRound::Flop => {
@@ -1167,5 +1162,210 @@ mod game_tests {
         assert!(TABLE_DARK_HEIGHT_RATIO > TABLE_LIGHT_HEIGHT_RATIO);
         assert_eq!(TABLE_DARK_WIDTH_RATIO, 1.0);
         assert_eq!(TABLE_LIGHT_WIDTH_RATIO, 0.94);
+    }
+
+    #[test]
+    fn test_get_valid_actions_check_only() {
+        let mut game_state = GameStateResource::default();
+        game_state.current_player = 0;
+        game_state.player_chips = [100, 100];
+        game_state.player_bets = [0, 0];
+        game_state.current_bet = 0;
+        let config = GameConfig::default();
+
+        let actions = get_valid_actions(&game_state, &config);
+
+        assert!(actions.contains(&PokerAction::Check));
+        assert!(actions.contains(&PokerAction::Bet));
+        assert!(!actions.contains(&PokerAction::Call));
+        assert!(!actions.contains(&PokerAction::Raise));
+        assert!(actions.contains(&PokerAction::Fold));
+    }
+
+    #[test]
+    fn test_get_valid_actions_must_call() {
+        let mut game_state = GameStateResource::default();
+        game_state.current_player = 1;
+        game_state.player_chips = [100, 200];
+        game_state.player_bets = [50, 0];
+        game_state.current_bet = 50;
+        let config = GameConfig::default();
+
+        let actions = get_valid_actions(&game_state, &config);
+
+        assert!(actions.contains(&PokerAction::Check));
+        assert!(!actions.contains(&PokerAction::Bet));
+        assert!(actions.contains(&PokerAction::Call));
+        assert!(actions.contains(&PokerAction::Raise));
+        assert!(actions.contains(&PokerAction::Fold));
+    }
+
+    #[test]
+    fn test_get_valid_actions_cannot_raise_without_chips() {
+        let mut game_state = GameStateResource::default();
+        game_state.current_player = 1;
+        game_state.player_chips = [200, 51];
+        game_state.player_bets = [50, 0];
+        game_state.current_bet = 50;
+        let config = GameConfig::default();
+
+        let actions = get_valid_actions(&game_state, &config);
+
+        assert!(actions.contains(&PokerAction::Call));
+        assert!(!actions.contains(&PokerAction::Raise));
+    }
+
+    #[test]
+    fn test_get_valid_actions_can_bet() {
+        let mut game_state = GameStateResource::default();
+        game_state.current_player = 0;
+        game_state.player_chips = [100, 100];
+        game_state.player_bets = [0, 0];
+        game_state.current_bet = 0;
+        let config = GameConfig::default();
+
+        let actions = get_valid_actions(&game_state, &config);
+
+        assert!(actions.contains(&PokerAction::Check));
+        assert!(actions.contains(&PokerAction::Bet));
+        assert!(!actions.contains(&PokerAction::Call));
+        assert!(!actions.contains(&PokerAction::Raise));
+        assert!(actions.contains(&PokerAction::Fold));
+    }
+
+    #[test]
+    fn test_get_valid_actions_can_raise() {
+        let mut game_state = GameStateResource::default();
+        game_state.current_player = 1;
+        game_state.player_chips = [200, 200];
+        game_state.player_bets = [50, 0];
+        game_state.current_bet = 50;
+        let config = GameConfig::default();
+
+        let actions = get_valid_actions(&game_state, &config);
+
+        assert!(actions.contains(&PokerAction::Call));
+        assert!(actions.contains(&PokerAction::Raise));
+    }
+
+    #[test]
+    fn test_place_bet_updates_state() {
+        let mut game_state = GameStateResource::default();
+        game_state.player_chips = [100, 100];
+        game_state.player_bets = [0, 0];
+        game_state.pot = 0;
+        game_state.current_bet = 0;
+        game_state.current_player = 0;
+
+        place_bet(&mut game_state, 50, true, 50);
+
+        assert_eq!(game_state.player_chips[0], 50);
+        assert_eq!(game_state.player_bets[0], 50);
+        assert_eq!(game_state.pot, 50);
+        assert_eq!(game_state.current_bet, 50);
+    }
+
+    #[test]
+    fn test_place_bet_all_in() {
+        let mut game_state = GameStateResource::default();
+        game_state.player_chips = [100, 100];
+        game_state.player_bets = [0, 0];
+        game_state.pot = 0;
+        game_state.current_bet = 0;
+        game_state.current_player = 0;
+
+        place_bet(&mut game_state, 200, true, 200);
+
+        assert_eq!(game_state.player_chips[0], 0);
+        assert_eq!(game_state.player_bets[0], 100);
+        assert_eq!(game_state.pot, 100);
+    }
+
+    #[test]
+    fn test_draw_card_returns_card() {
+        let mut game_state = GameStateResource::default();
+        game_state.deck = Deck::new();
+        let initial_remaining = game_state.deck.cards_remaining();
+
+        let card = draw_card(&mut game_state);
+
+        assert!(!card.is_placeholder);
+        assert_eq!(game_state.deck.cards_remaining(), initial_remaining - 1);
+    }
+
+    #[test]
+    fn test_draw_card_emergency_reshuffle() {
+        let mut game_state = GameStateResource::default();
+        game_state.deck = Deck::new();
+        while game_state.deck.cards_remaining() > 0 {
+            game_state.deck.draw();
+        }
+
+        let card = draw_card(&mut game_state);
+
+        assert!(!card.is_placeholder);
+    }
+
+    #[test]
+    fn test_advance_street_check_check() {
+        let mut game_state = GameStateResource::default();
+        game_state.current_round = PokerRound::PreFlop;
+        game_state.player_bets = [0, 0];
+        game_state.current_bet = 0;
+        game_state.dealer_position = 0;
+        let config = GameConfig::default();
+
+        advance_street(&mut game_state, &config);
+
+        assert_eq!(game_state.current_round, PokerRound::Flop);
+        assert_eq!(game_state.current_bet, 0);
+        assert_eq!(game_state.player_bets, [0, 0]);
+    }
+
+    #[test]
+    fn test_advance_street_both_matched() {
+        let mut game_state = GameStateResource::default();
+        game_state.current_round = PokerRound::Flop;
+        game_state.player_bets = [50, 50];
+        game_state.current_bet = 50;
+        game_state.dealer_position = 0;
+        let config = GameConfig::default();
+
+        advance_street(&mut game_state, &config);
+
+        assert_eq!(game_state.current_round, PokerRound::Turn);
+        assert_eq!(game_state.current_bet, 0);
+        assert_eq!(game_state.player_bets, [0, 0]);
+    }
+
+    #[test]
+    fn test_advance_street_not_ready() {
+        let mut game_state = GameStateResource::default();
+        game_state.current_round = PokerRound::PreFlop;
+        game_state.player_bets = [50, 0];
+        game_state.current_bet = 50;
+        game_state.dealer_position = 0;
+        let config = GameConfig::default();
+
+        advance_street(&mut game_state, &config);
+
+        assert_eq!(game_state.current_round, PokerRound::PreFlop);
+        assert_eq!(game_state.current_bet, 50);
+    }
+
+    #[test]
+    fn test_advance_street_to_showdown() {
+        let mut game_state = GameStateResource::default();
+        game_state.current_round = PokerRound::River;
+        game_state.player_bets = [100, 100];
+        game_state.current_bet = 100;
+        game_state.dealer_position = 0;
+        game_state.showdown_timer = 0.0;
+        let config = GameConfig::default();
+
+        advance_street(&mut game_state, &config);
+
+        assert_eq!(game_state.current_round, PokerRound::Showdown);
+        assert!(game_state.showdown_timer > 0.0);
     }
 }
