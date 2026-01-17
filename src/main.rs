@@ -113,6 +113,7 @@ const CHIP_LABEL_FONT_SIZE: f32 = 18.0;
 
 const MIN_CARDS_FOR_RESHUFFLE: usize = 9;
 const PLAYER_COUNT: usize = 2;
+const SHOWDOWN_TIMER_RESET_THRESHOLD: f32 = -0.5;
 
 const PLAYER_Y_TOP_RATIO: f32 = 0.25;
 const PLAYER_Y_BOTTOM_RATIO: f32 = -0.32;
@@ -272,6 +273,7 @@ fn setup_game(
     game_state.player_bets = [0; PLAYER_COUNT];
     game_state.current_bet = 0;
     game_state.winner = None;
+    game_state.dealer_position = 0;
 }
 
 fn start_hand(
@@ -332,7 +334,7 @@ fn start_hand_system(
     colors: Res<ColorPalette>,
     time: Res<Time>,
 ) {
-    if game_state.hand_number == 1 || game_state.showdown_timer < -0.5 {
+    if game_state.hand_number == 1 || game_state.showdown_timer < SHOWDOWN_TIMER_RESET_THRESHOLD {
         game_state.needs_cleanup = true;
         game_state.animation_start_time = time.elapsed_seconds();
         game_state.showdown_timer = 0.0;
@@ -395,10 +397,15 @@ fn spawn_player(
     for j in 0..2 {
         let card_offset = (j as f32 - 0.5) * config.card_offset_spacing;
         let target_pos = Vec3::new(x_pos + card_offset, card_target_y, 1.0);
-        let card = game_state
-            .deck
-            .draw()
-            .expect("Deck should always have cards");
+        let card = if let Some(c) = game_state.deck.draw() {
+            c
+        } else {
+            warn!("Deck empty during player deal - reshuffling");
+            game_state.deck = Deck::new();
+            game_state.deck.draw().unwrap_or_else(|| {
+                panic!("Deck reshuffle failed - no cards available");
+            })
+        };
 
         let player_hole = if id == 0 {
             &mut game_state.p1_hole
@@ -549,10 +556,15 @@ fn spawn_community_card(
     i: usize,
 ) {
     let x_offset = (i as f32 - 2.0) * config.card_offset_spacing;
-    let community_card = game_state
-        .deck
-        .draw()
-        .expect("Deck should always have cards");
+    let community_card = if let Some(c) = game_state.deck.draw() {
+        c
+    } else {
+        warn!("Deck empty during community card deal - reshuffling");
+        game_state.deck = Deck::new();
+        game_state.deck.draw().unwrap_or_else(|| {
+            panic!("Deck reshuffle failed - no cards available");
+        })
+    };
 
     game_state.community_cards[i] = community_card;
 
@@ -786,9 +798,11 @@ fn place_bet(
     new_current_bet: u32,
 ) {
     let player_idx = game_state.current_player;
-    game_state.player_chips[player_idx] -= amount;
-    game_state.player_bets[player_idx] += amount;
-    game_state.pot += amount;
+    let available_chips = game_state.player_chips[player_idx];
+    let actual_amount = amount.min(available_chips);
+    game_state.player_chips[player_idx] -= actual_amount;
+    game_state.player_bets[player_idx] += actual_amount;
+    game_state.pot += actual_amount;
     if is_raise {
         game_state.current_bet = new_current_bet;
     }
