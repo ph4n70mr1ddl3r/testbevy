@@ -291,6 +291,7 @@ fn start_hand(
     game_state.player_bets = [0; PLAYER_COUNT];
     game_state.current_bet = 0;
     game_state.winner = None;
+    game_state.last_winner_message.clear();
 
     if game_state.deck.cards_remaining() < MIN_CARDS_FOR_RESHUFFLE {
         game_state.deck = Deck::new();
@@ -394,12 +395,10 @@ fn spawn_player(
     for j in 0..2 {
         let card_offset = (j as f32 - 0.5) * config.card_offset_spacing;
         let target_pos = Vec3::new(x_pos + card_offset, card_target_y, 1.0);
-        let card = if let Some(c) = game_state.deck.draw() {
-            c
-        } else {
-            game_state.deck = Deck::new();
-            game_state.deck.draw().unwrap()
-        };
+        let card = game_state
+            .deck
+            .draw()
+            .expect("Deck should always have cards");
 
         let player_hole = if id == 0 {
             &mut game_state.p1_hole
@@ -550,7 +549,10 @@ fn spawn_community_card(
     i: usize,
 ) {
     let x_offset = (i as f32 - 2.0) * config.card_offset_spacing;
-    let community_card = game_state.deck.draw().unwrap();
+    let community_card = game_state
+        .deck
+        .draw()
+        .expect("Deck should always have cards");
 
     game_state.community_cards[i] = community_card;
 
@@ -795,7 +797,7 @@ fn place_bet(
 fn perform_validated_action(game_state: &mut GameStateResource, config: &GameConfig) {
     let actions = get_valid_actions(game_state, config);
     if actions.is_empty() {
-        game_state.last_action = "No actions available".to_string();
+        game_state.last_action = "No actions".to_string();
         return;
     }
 
@@ -837,13 +839,14 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
         PokerAction::Fold => {
             let winner = (game_state.current_player + 1) % 2;
             game_state.winner = Some(winner);
-            game_state.player_chips[winner] += game_state.pot;
-            game_state.player_chips[winner] += game_state.pot_remainder;
+            game_state.player_chips[winner] =
+                game_state.player_chips[winner].saturating_add(game_state.pot);
+            game_state.player_chips[winner] =
+                game_state.player_chips[winner].saturating_add(game_state.pot_remainder);
             game_state.last_winner_message = format!(
-                "P{} folded - P{} wins ${}",
+                "P{} folded - P{} wins",
                 game_state.current_player + 1,
-                winner + 1,
-                game_state.pot + game_state.pot_remainder
+                winner + 1
             );
             game_state.pot = 0;
             game_state.pot_remainder = 0;
@@ -941,11 +944,11 @@ fn process_showdown_result(game_state: &mut GameStateResource) {
     );
 
     match result {
-        (0, true) => {
+        0 => {
             game_state.winner = Some(0);
             distribute_pot(game_state, 0);
         }
-        (1, true) => {
+        1 => {
             game_state.winner = Some(1);
             distribute_pot(game_state, 1);
         }
@@ -959,22 +962,17 @@ fn process_showdown_result(game_state: &mut GameStateResource) {
 
 fn distribute_pot(game_state: &mut GameStateResource, winner: usize) {
     let total_pot = game_state.pot + game_state.pot_remainder;
-    game_state.player_chips[winner] += total_pot;
-    game_state.last_winner_message = format!("P{} wins ${}!", winner + 1, total_pot);
+    game_state.player_chips[winner] = game_state.player_chips[winner].saturating_add(total_pot);
+    game_state.last_winner_message = format!("P{} wins", winner + 1);
 }
 
 fn split_pot(game_state: &mut GameStateResource) {
     let split_amount = game_state.pot / 2;
     let remainder = game_state.pot % 2;
-    game_state.player_chips[0] += split_amount;
-    game_state.player_chips[1] += split_amount;
+    game_state.player_chips[0] = game_state.player_chips[0].saturating_add(split_amount);
+    game_state.player_chips[1] = game_state.player_chips[1].saturating_add(split_amount);
     game_state.pot_remainder += remainder;
-    game_state.last_winner_message = format!("Split pot - each wins ${}", split_amount);
-    if remainder > 0 {
-        game_state
-            .last_winner_message
-            .push_str(&format!(" ({} remainder)", remainder));
-    }
+    game_state.last_winner_message = "Split pot".to_string();
 }
 
 fn update_card_visuals(
@@ -1036,12 +1034,8 @@ fn update_ui(
         text.sections[0].value = get_round_name(game_state.current_round).to_string();
     }
 
-    let action_text = if let Some(winner) = game_state.winner {
-        format!(
-            "Winner: P{} - {}",
-            winner + 1,
-            game_state.last_winner_message
-        )
+    let action_text = if game_state.winner.is_some() {
+        game_state.last_winner_message.clone()
     } else {
         game_state.last_action.clone()
     };

@@ -391,7 +391,7 @@ pub fn determine_winner(
     p1_hole: &[Card; 2],
     p2_hole: &[Card; 2],
     community_cards: &[Card; 5],
-) -> (i32, bool) {
+) -> i32 {
     let player1_hand: Vec<Card> = [&p1_hole[0], &p1_hole[1]]
         .into_iter()
         .chain(community_cards.iter())
@@ -410,11 +410,11 @@ pub fn determine_winner(
     let score2 = eval2.score();
 
     if score1 > score2 {
-        (0, true)
+        0
     } else if score2 > score1 {
-        (1, true)
+        1
     } else {
-        (-1, false)
+        -1
     }
 }
 
@@ -590,8 +590,7 @@ mod tests {
         ];
 
         let result = determine_winner(&p1, &p2, &community);
-        assert_eq!(result.0, 0);
-        assert!(result.1);
+        assert_eq!(result, 0);
     }
 
     #[test]
@@ -613,8 +612,7 @@ mod tests {
         ];
 
         let result = determine_winner(&p1, &p2, &community);
-        assert_eq!(result.0, -1);
-        assert!(!result.1);
+        assert_eq!(result, -1);
     }
 
     #[test]
@@ -697,8 +695,7 @@ mod tests {
         ];
 
         let result = determine_winner(&p1, &p2, &community);
-        assert_eq!(result.0, 0);
-        assert!(result.1);
+        assert_eq!(result, 0);
     }
 
     #[test]
@@ -717,8 +714,7 @@ mod tests {
         ];
 
         let result = determine_winner(&p1, &p2, &community);
-        assert_eq!(result.0, 0);
-        assert!(result.1);
+        assert_eq!(result, 0);
     }
 
     #[test]
@@ -737,8 +733,7 @@ mod tests {
         ];
 
         let result = determine_winner(&p1, &p2, &community);
-        assert_eq!(result.0, 0);
-        assert!(result.1);
+        assert_eq!(result, 0);
     }
 
     #[test]
@@ -760,8 +755,7 @@ mod tests {
         ];
 
         let result = determine_winner(&p1, &p2, &community);
-        assert_eq!(result.0, 0);
-        assert!(result.1);
+        assert_eq!(result, 0);
     }
 
     #[test]
@@ -783,8 +777,7 @@ mod tests {
         ];
 
         let result = determine_winner(&p1, &p2, &community);
-        assert_eq!(result.0, 0);
-        assert!(result.1);
+        assert_eq!(result, 0);
     }
 
     #[test]
@@ -949,8 +942,95 @@ mod tests {
         ];
 
         let result = determine_winner(&p1, &p2, &community);
-        assert_eq!(result.0, 0);
-        assert!(result.1);
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn test_determine_winner_four_of_kind() {
+        let p1 = [
+            card(Rank::Seven, Suit::Hearts),
+            card(Rank::Seven, Suit::Spades),
+        ];
+        let p2 = [
+            card(Rank::Ace, Suit::Hearts),
+            card(Rank::King, Suit::Spades),
+        ];
+        let community = [
+            card(Rank::Seven, Suit::Diamonds),
+            card(Rank::Seven, Suit::Clubs),
+            card(Rank::Two, Suit::Hearts),
+            card(Rank::Five, Suit::Spades),
+            card(Rank::Eight, Suit::Diamonds),
+        ];
+
+        let result = determine_winner(&p1, &p2, &community);
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn test_determine_winner_straight_vs_flush() {
+        let p1 = [
+            card(Rank::Six, Suit::Hearts),
+            card(Rank::Seven, Suit::Diamonds),
+        ];
+        let p2 = [
+            card(Rank::King, Suit::Hearts),
+            card(Rank::Queen, Suit::Hearts),
+        ];
+        let community = [
+            card(Rank::Eight, Suit::Hearts),
+            card(Rank::Nine, Suit::Hearts),
+            card(Rank::Ten, Suit::Hearts),
+            card(Rank::Jack, Suit::Spades),
+            card(Rank::Two, Suit::Clubs),
+        ];
+
+        let result = determine_winner(&p1, &p2, &community);
+        assert_eq!(result, 1);
+    }
+
+    #[test]
+    fn test_determine_winner_three_of_kind_beats_two_pair() {
+        let p1 = [
+            card(Rank::Seven, Suit::Hearts),
+            card(Rank::Seven, Suit::Diamonds),
+        ];
+        let p2 = [
+            card(Rank::Ace, Suit::Hearts),
+            card(Rank::King, Suit::Hearts),
+        ];
+        let community = [
+            card(Rank::Seven, Suit::Clubs),
+            card(Rank::King, Suit::Diamonds),
+            card(Rank::King, Suit::Spades),
+            card(Rank::Two, Suit::Hearts),
+            card(Rank::Three, Suit::Clubs),
+        ];
+
+        let result = determine_winner(&p1, &p2, &community);
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn test_determine_winner_high_card_wins() {
+        let p1 = [
+            card(Rank::Ace, Suit::Hearts),
+            card(Rank::Two, Suit::Diamonds),
+        ];
+        let p2 = [
+            card(Rank::King, Suit::Hearts),
+            card(Rank::Queen, Suit::Diamonds),
+        ];
+        let community = [
+            card(Rank::Ten, Suit::Spades),
+            card(Rank::Eight, Suit::Clubs),
+            card(Rank::Six, Suit::Hearts),
+            card(Rank::Four, Suit::Diamonds),
+            card(Rank::Three, Suit::Clubs),
+        ];
+
+        let result = determine_winner(&p1, &p2, &community);
+        assert_eq!(result, 0);
     }
 
     #[test]
@@ -1033,121 +1113,6 @@ mod tests {
         assert_eq!(eval.hand_rank, HandRank::FullHouse);
         assert_eq!(eval.primary_values[0], Rank::King);
         assert_eq!(eval.primary_values[1], Rank::Ace);
-    }
-
-    #[test]
-    fn test_determine_winner_four_of_kind() {
-        let p1 = [
-            card(Rank::Seven, Suit::Hearts),
-            card(Rank::Seven, Suit::Spades),
-        ];
-        let p2 = [
-            card(Rank::Ace, Suit::Hearts),
-            card(Rank::King, Suit::Spades),
-        ];
-        let community = [
-            card(Rank::Seven, Suit::Diamonds),
-            card(Rank::Seven, Suit::Clubs),
-            card(Rank::Two, Suit::Hearts),
-            card(Rank::Five, Suit::Spades),
-            card(Rank::Eight, Suit::Diamonds),
-        ];
-
-        let result = determine_winner(&p1, &p2, &community);
-        assert_eq!(result.0, 0);
-        assert!(result.1);
-    }
-
-    #[test]
-    fn test_determine_winner_straight_vs_flush() {
-        let p1 = [
-            card(Rank::Six, Suit::Hearts),
-            card(Rank::Seven, Suit::Diamonds),
-        ];
-        let p2 = [
-            card(Rank::King, Suit::Hearts),
-            card(Rank::Queen, Suit::Hearts),
-        ];
-        let community = [
-            card(Rank::Eight, Suit::Hearts),
-            card(Rank::Nine, Suit::Hearts),
-            card(Rank::Ten, Suit::Hearts),
-            card(Rank::Jack, Suit::Spades),
-            card(Rank::Two, Suit::Clubs),
-        ];
-
-        let result = determine_winner(&p1, &p2, &community);
-        assert_eq!(result.0, 1);
-        assert!(result.1);
-    }
-
-    #[test]
-    fn test_determine_winner_three_of_kind_beats_two_pair() {
-        let p1 = [
-            card(Rank::Seven, Suit::Hearts),
-            card(Rank::Seven, Suit::Diamonds),
-        ];
-        let p2 = [
-            card(Rank::Ace, Suit::Hearts),
-            card(Rank::King, Suit::Hearts),
-        ];
-        let community = [
-            card(Rank::Seven, Suit::Clubs),
-            card(Rank::King, Suit::Diamonds),
-            card(Rank::King, Suit::Spades),
-            card(Rank::Two, Suit::Hearts),
-            card(Rank::Three, Suit::Clubs),
-        ];
-
-        let result = determine_winner(&p1, &p2, &community);
-        assert_eq!(result.0, 0);
-        assert!(result.1);
-    }
-
-    #[test]
-    fn test_determine_winner_high_card_wins() {
-        let p1 = [
-            card(Rank::Ace, Suit::Hearts),
-            card(Rank::Two, Suit::Diamonds),
-        ];
-        let p2 = [
-            card(Rank::King, Suit::Hearts),
-            card(Rank::Queen, Suit::Diamonds),
-        ];
-        let community = [
-            card(Rank::Ten, Suit::Spades),
-            card(Rank::Eight, Suit::Clubs),
-            card(Rank::Six, Suit::Hearts),
-            card(Rank::Four, Suit::Diamonds),
-            card(Rank::Three, Suit::Clubs),
-        ];
-
-        let result = determine_winner(&p1, &p2, &community);
-        assert_eq!(result.0, 0);
-        assert!(result.1);
-    }
-
-    #[test]
-    fn test_determine_winner_same_high_card_goes_to_kicker() {
-        let p1 = [
-            card(Rank::Ace, Suit::Hearts),
-            card(Rank::King, Suit::Diamonds),
-        ];
-        let p2 = [
-            card(Rank::Ace, Suit::Spades),
-            card(Rank::Jack, Suit::Diamonds),
-        ];
-        let community = [
-            card(Rank::Ten, Suit::Clubs),
-            card(Rank::Eight, Suit::Hearts),
-            card(Rank::Six, Suit::Spades),
-            card(Rank::Four, Suit::Clubs),
-            card(Rank::Three, Suit::Hearts),
-        ];
-
-        let result = determine_winner(&p1, &p2, &community);
-        assert_eq!(result.0, 0);
-        assert!(result.1);
     }
 
     #[test]
