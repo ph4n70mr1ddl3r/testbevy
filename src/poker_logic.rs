@@ -234,23 +234,23 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
         };
     }
 
-    let mut cards: Vec<Card> = cards
+    let mut cards_vec: Vec<Card> = cards
         .iter()
         .filter(|c| !c.is_placeholder)
         .cloned()
         .collect();
-    cards.sort_by_key(|c| c.rank);
+    cards_vec.sort_by_key(|c| c.rank);
 
     let suit_counts: HashMap<Suit, usize> = {
         let mut counts = HashMap::new();
-        for c in &cards {
+        for c in cards_vec.iter() {
             *counts.entry(c.suit).or_insert(0) += 1;
         }
         counts
     };
     let is_flush = suit_counts.values().any(|&count| count >= 5);
 
-    let ranks: Vec<Rank> = cards.iter().map(|c| c.rank).collect();
+    let ranks: Vec<Rank> = cards_vec.iter().map(|c| c.rank).collect();
     let unique_ranks: HashSet<Rank> = ranks.iter().copied().collect();
 
     let straight_high = find_straight_high(&unique_ranks);
@@ -288,7 +288,7 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
             .map(|(suit, _)| *suit);
 
         if let Some(flush_suit) = flush_suit {
-            let flush_cards: Vec<Card> = cards
+            let flush_cards: Vec<Card> = cards_vec
                 .iter()
                 .filter(|c| c.suit == flush_suit)
                 .cloned()
@@ -333,7 +333,7 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
     }
 
     if is_flush {
-        let flush_values: Vec<Rank> = cards.iter().map(|c| c.rank).rev().collect();
+        let flush_values: Vec<Rank> = cards_vec.iter().map(|c| c.rank).rev().collect();
         return EvaluatedHand {
             hand_rank: HandRank::Flush,
             primary_values: flush_values,
