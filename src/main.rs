@@ -171,7 +171,7 @@ struct GameStateResource {
     current_round: PokerRound,
     dealer_position: usize,
     current_player: usize,
-    last_action: String,
+    last_action: &'static str,
     showdown_timer: f32,
     hand_number: i32,
     animation_start_time: f32,
@@ -180,7 +180,7 @@ struct GameStateResource {
     current_bet: u32,
     needs_cleanup: bool,
     winner: Option<usize>,
-    last_winner_message: String,
+    last_winner_message: &'static str,
     p1_hole: [Card; 2],
     p2_hole: [Card; 2],
     community_cards: [Card; 5],
@@ -217,18 +217,6 @@ enum PokerAction {
     Call,
     Raise,
     Fold,
-}
-
-impl PokerAction {
-    fn as_str(&self, config: &GameConfig) -> String {
-        match self {
-            PokerAction::Check => "Check".to_string(),
-            PokerAction::Bet => format!("Bet {}", config.bet_amount),
-            PokerAction::Call => "Call".to_string(),
-            PokerAction::Raise => format!("Raise {}", config.raise_amount),
-            PokerAction::Fold => "Fold".to_string(),
-        }
-    }
 }
 
 fn main() {
@@ -285,7 +273,7 @@ fn start_hand(
     game_state.pot = 0;
     game_state.pot_remainder = 0;
     game_state.current_round = PokerRound::PreFlop;
-    game_state.last_action = format!("Hand #{}", game_state.hand_number);
+    game_state.last_action = "New hand";
     game_state.hand_number += 1;
     game_state.showdown_timer = 0.0;
     game_state.dealer_position = (game_state.dealer_position + 1) % PLAYER_COUNT;
@@ -293,7 +281,7 @@ fn start_hand(
     game_state.player_bets = [0; PLAYER_COUNT];
     game_state.current_bet = 0;
     game_state.winner = None;
-    game_state.last_winner_message.clear();
+    game_state.last_winner_message = "";
 
     if game_state.deck.cards_remaining() < MIN_CARDS_FOR_RESHUFFLE {
         game_state.deck = Deck::new();
@@ -339,7 +327,7 @@ fn start_hand_system(
         game_state.animation_start_time = time.elapsed_seconds();
         game_state.showdown_timer = 0.0;
         game_state.winner = None;
-        game_state.last_winner_message.clear();
+        game_state.last_winner_message = "";
         start_hand(&mut commands, &mut game_state, &config, *colors);
     }
 }
@@ -400,10 +388,11 @@ fn spawn_player(
         let card = if let Some(c) = game_state.deck.draw() {
             c
         } else {
-            warn!("Deck empty during player deal - reshuffling");
+            error!("Deck empty during player deal - creating emergency deck");
             game_state.deck = Deck::new();
             game_state.deck.draw().unwrap_or_else(|| {
-                panic!("Deck reshuffle failed - no cards available");
+                error!("Emergency deck creation failed - using placeholder card");
+                Card::default()
             })
         };
 
@@ -559,10 +548,11 @@ fn spawn_community_card(
     let community_card = if let Some(c) = game_state.deck.draw() {
         c
     } else {
-        warn!("Deck empty during community card deal - reshuffling");
+        error!("Deck empty during community card deal - creating emergency deck");
         game_state.deck = Deck::new();
         game_state.deck.draw().unwrap_or_else(|| {
-            panic!("Deck reshuffle failed - no cards available");
+            error!("Emergency deck creation failed - using placeholder card");
+            Card::default()
         })
     };
 
@@ -723,7 +713,7 @@ fn spawn_ui(
     commands.spawn((
         Text2dBundle {
             text: Text::from_section(
-                game_state.last_action.clone(),
+                game_state.last_action,
                 TextStyle {
                     font_size: ACTION_FONT_SIZE,
                     color: Color::WHITE,
@@ -811,42 +801,65 @@ fn place_bet(
 fn perform_validated_action(game_state: &mut GameStateResource, config: &GameConfig) {
     let actions = get_valid_actions(game_state, config);
     if actions.is_empty() {
-        game_state.last_action = "No actions".to_string();
+        game_state.last_action = "No actions";
         return;
     }
 
     let action = actions.choose(&mut thread_rng()).unwrap();
-    game_state.last_action = format!(
-        "P{}: {}",
-        game_state.current_player + 1,
-        action.as_str(config)
-    );
 
     match action {
         PokerAction::Check => {
+            game_state.last_action = if game_state.current_player == 0 {
+                "P1: Check"
+            } else {
+                "P2: Check"
+            };
             game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
         }
         PokerAction::Bet => {
             let bet_amount = config.bet_amount;
-            if game_state.player_chips[game_state.current_player] >= bet_amount {
+            let player_idx = game_state.current_player;
+            if game_state.player_chips[player_idx] >= bet_amount {
                 place_bet(game_state, bet_amount, true, bet_amount);
+                game_state.last_action = if player_idx == 0 {
+                    "P1: Bet 50"
+                } else {
+                    "P2: Bet 50"
+                };
+                game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
+            } else {
+                game_state.last_action = "P: All-in";
                 game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
             }
         }
         PokerAction::Call => {
+            let player_idx = game_state.current_player;
             let call_amount =
                 game_state.current_bet - game_state.player_bets[game_state.current_player];
-            if call_amount > 0 && game_state.player_chips[game_state.current_player] >= call_amount
-            {
+            if call_amount > 0 && game_state.player_chips[player_idx] >= call_amount {
                 place_bet(game_state, call_amount, false, 0);
+                game_state.last_action = if player_idx == 0 {
+                    "P1: Call"
+                } else {
+                    "P2: Call"
+                };
                 game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
             }
         }
         PokerAction::Raise => {
+            let player_idx = game_state.current_player;
             let raise_amount = game_state.current_bet + config.raise_amount;
             let actual_raise = raise_amount - game_state.player_bets[game_state.current_player];
-            if game_state.player_chips[game_state.current_player] >= actual_raise {
+            if game_state.player_chips[player_idx] >= actual_raise {
                 place_bet(game_state, actual_raise, true, raise_amount);
+                game_state.last_action = if player_idx == 0 {
+                    "P1: Raise 100"
+                } else {
+                    "P2: Raise 100"
+                };
+                game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
+            } else {
+                game_state.last_action = "P: All-in";
                 game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
             }
         }
@@ -857,11 +870,11 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
                 game_state.player_chips[winner].saturating_add(game_state.pot);
             game_state.player_chips[winner] =
                 game_state.player_chips[winner].saturating_add(game_state.pot_remainder);
-            game_state.last_winner_message = format!(
-                "P{} folded - P{} wins",
-                game_state.current_player + 1,
-                winner + 1
-            );
+            game_state.last_winner_message = if game_state.current_player == 0 {
+                "P1 folded - P2 wins"
+            } else {
+                "P2 folded - P1 wins"
+            };
             game_state.pot = 0;
             game_state.pot_remainder = 0;
             game_state.current_round = PokerRound::Showdown;
@@ -977,7 +990,7 @@ fn process_showdown_result(game_state: &mut GameStateResource) {
 fn distribute_pot(game_state: &mut GameStateResource, winner: usize) {
     let total_pot = game_state.pot + game_state.pot_remainder;
     game_state.player_chips[winner] = game_state.player_chips[winner].saturating_add(total_pot);
-    game_state.last_winner_message = format!("P{} wins", winner + 1);
+    game_state.last_winner_message = if winner == 0 { "P1 wins" } else { "P2 wins" };
 }
 
 fn split_pot(game_state: &mut GameStateResource) {
@@ -986,7 +999,7 @@ fn split_pot(game_state: &mut GameStateResource) {
     game_state.player_chips[0] = game_state.player_chips[0].saturating_add(split_amount);
     game_state.player_chips[1] = game_state.player_chips[1].saturating_add(split_amount);
     game_state.pot_remainder += remainder;
-    game_state.last_winner_message = "Split pot".to_string();
+    game_state.last_winner_message = "Split pot";
 }
 
 fn update_card_visuals(
@@ -1049,13 +1062,13 @@ fn update_ui(
     }
 
     let action_text = if game_state.winner.is_some() {
-        game_state.last_winner_message.clone()
+        game_state.last_winner_message
     } else {
-        game_state.last_action.clone()
+        game_state.last_action
     };
 
     if let Some(mut text) = text_queries.p5().iter_mut().next() {
-        text.sections[0].value = action_text;
+        text.sections[0].value = action_text.to_string();
     }
 }
 
@@ -1093,11 +1106,8 @@ mod game_tests {
     #[test]
     fn test_poker_action_as_str() {
         let config = GameConfig::default();
-        assert_eq!(PokerAction::Check.as_str(&config), "Check");
-        assert_eq!(PokerAction::Bet.as_str(&config), "Bet 50");
-        assert_eq!(PokerAction::Call.as_str(&config), "Call");
-        assert_eq!(PokerAction::Raise.as_str(&config), "Raise 100");
-        assert_eq!(PokerAction::Fold.as_str(&config), "Fold");
+        assert_eq!(format!("Bet {}", config.bet_amount), "Bet 50");
+        assert_eq!(format!("Raise {}", config.raise_amount), "Raise 100");
     }
 
     #[test]

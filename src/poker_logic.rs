@@ -140,23 +140,43 @@ fn find_straight_high(ranks: &HashSet<Rank>) -> Option<Rank> {
         return None;
     }
 
-    const WHEEL_RANKS: [Rank; 5] = [Rank::Two, Rank::Three, Rank::Four, Rank::Five, Rank::Ace];
-    let has_wheel = WHEEL_RANKS.iter().all(|r| ranks.contains(r));
+    const WHEEL_BITS: u16 = (1 << 14) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5);
+    const STRAIGHT_MASK: u16 = 0b11111;
 
-    let mut sorted_ranks: Vec<Rank> = ranks.iter().copied().collect();
-    sorted_ranks.sort();
-
-    let mut highest_straight: Option<Rank> = None;
-
-    for i in 0..sorted_ranks.len().saturating_sub(4) {
-        let window = &sorted_ranks[i..i + 5];
-        let is_consecutive = window.windows(2).all(|w| (w[1] as u8) - (w[0] as u8) == 1);
-        if is_consecutive {
-            highest_straight = Some(window[4]);
+    let mut rank_bits: u16 = 0;
+    for &rank in ranks {
+        let idx = rank as u8;
+        if (2..=14).contains(&idx) {
+            rank_bits |= 1 << idx;
         }
     }
 
-    highest_straight.or(if has_wheel { Some(Rank::Five) } else { None })
+    let has_wheel = (rank_bits & WHEEL_BITS) == WHEEL_BITS;
+
+    const STRAIGHT_HIGH_MAP: [(u16, Rank); 10] = [
+        (STRAIGHT_MASK << 10, Rank::Ace),
+        (STRAIGHT_MASK << 9, Rank::King),
+        (STRAIGHT_MASK << 8, Rank::Queen),
+        (STRAIGHT_MASK << 7, Rank::Jack),
+        (STRAIGHT_MASK << 6, Rank::Ten),
+        (STRAIGHT_MASK << 5, Rank::Nine),
+        (STRAIGHT_MASK << 4, Rank::Eight),
+        (STRAIGHT_MASK << 3, Rank::Seven),
+        (STRAIGHT_MASK << 2, Rank::Six),
+        (STRAIGHT_MASK << 1, Rank::Five),
+    ];
+
+    for (mask, rank) in STRAIGHT_HIGH_MAP.iter() {
+        if (rank_bits & *mask) == *mask {
+            return Some(*rank);
+        }
+    }
+
+    if has_wheel {
+        Some(Rank::Five)
+    } else {
+        None
+    }
 }
 
 impl Default for Deck {
