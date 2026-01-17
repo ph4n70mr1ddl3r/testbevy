@@ -4,6 +4,9 @@ use rand::{seq::SliceRandom, thread_rng};
 mod poker_logic;
 use poker_logic::{determine_winner, Card, Deck, PokerRound};
 
+const INITIAL_HAND_NUMBER: i32 = 1;
+const PLAYER_COUNT: usize = 2;
+
 #[derive(Resource)]
 struct GameConfig {
     card_width: f32,
@@ -29,6 +32,7 @@ struct GameConfig {
     action_display_y: f32,
     player_label_offset: f32,
     chip_label_offset: f32,
+    min_cards_for_reshuffle: usize,
 }
 
 impl Default for GameConfig {
@@ -57,6 +61,7 @@ impl Default for GameConfig {
             action_display_y: -180.0,
             player_label_offset: 20.0,
             chip_label_offset: -5.0,
+            min_cards_for_reshuffle: 9,
         }
     }
 }
@@ -111,8 +116,6 @@ const COMMUNITY_CARD_FONT_SIZE: f32 = 12.0;
 const PLAYER_LABEL_FONT_SIZE: f32 = 20.0;
 const CHIP_LABEL_FONT_SIZE: f32 = 18.0;
 
-const MIN_CARDS_FOR_RESHUFFLE: usize = 9;
-const PLAYER_COUNT: usize = 2;
 const BETTING_INITIAL_DELAY: f32 = 1.0;
 const SHOWDOWN_TIMER_RESET_THRESHOLD: f32 = -0.5;
 
@@ -266,6 +269,32 @@ fn setup_game(
     game_state.dealer_position = 0;
 }
 
+fn start_hand_system(
+    mut commands: Commands,
+    mut game_state: ResMut<GameStateResource>,
+    config: Res<GameConfig>,
+    colors: Res<ColorPalette>,
+    time: Res<Time>,
+) {
+    if game_state.hand_number == INITIAL_HAND_NUMBER
+        || game_state.showdown_timer < SHOWDOWN_TIMER_RESET_THRESHOLD
+    {
+        game_state.needs_cleanup = true;
+        game_state.animation_start_time = time.elapsed_seconds();
+        game_state.showdown_timer = 0.0;
+        game_state.action_tick = 0;
+        game_state.winner = None;
+        game_state.last_winner_message = "".to_string();
+        start_hand(
+            &mut commands,
+            &mut game_state,
+            &config,
+            *colors,
+            time.elapsed_seconds(),
+        );
+    }
+}
+
 fn start_hand(
     commands: &mut Commands,
     game_state: &mut GameStateResource,
@@ -286,7 +315,7 @@ fn start_hand(
     game_state.winner = None;
     game_state.last_winner_message = "".to_string();
 
-    if game_state.deck.cards_remaining() < MIN_CARDS_FOR_RESHUFFLE {
+    if game_state.deck.cards_remaining() < config.min_cards_for_reshuffle {
         game_state.deck = Deck::new();
     }
 
@@ -295,22 +324,26 @@ fn start_hand(
     let player_y_top = config.screen_height * PLAYER_Y_TOP_RATIO;
     let player_y_bottom = config.screen_height * PLAYER_Y_BOTTOM_RATIO;
 
-    for id in 0..PLAYER_COUNT {
-        spawn_player(
-            commands,
-            game_state,
-            config,
-            &colors,
-            id,
-            0.0,
-            if id == 0 {
-                player_y_top
-            } else {
-                player_y_bottom
-            },
-            animation_start_time,
-        );
-    }
+    spawn_player(
+        commands,
+        game_state,
+        config,
+        &colors,
+        0,
+        0.0,
+        player_y_top,
+        animation_start_time,
+    );
+    spawn_player(
+        commands,
+        game_state,
+        config,
+        &colors,
+        1,
+        0.0,
+        player_y_bottom,
+        animation_start_time,
+    );
 
     for i in 0..5 {
         spawn_community_card(
@@ -324,30 +357,6 @@ fn start_hand(
     }
 
     spawn_ui(commands, game_state, config, &colors);
-}
-
-fn start_hand_system(
-    mut commands: Commands,
-    mut game_state: ResMut<GameStateResource>,
-    config: Res<GameConfig>,
-    colors: Res<ColorPalette>,
-    time: Res<Time>,
-) {
-    if game_state.hand_number == 1 || game_state.showdown_timer < SHOWDOWN_TIMER_RESET_THRESHOLD {
-        game_state.needs_cleanup = true;
-        game_state.animation_start_time = time.elapsed_seconds();
-        game_state.showdown_timer = 0.0;
-        game_state.action_tick = 0;
-        game_state.winner = None;
-        game_state.last_winner_message = "".to_string();
-        start_hand(
-            &mut commands,
-            &mut game_state,
-            &config,
-            *colors,
-            time.elapsed_seconds(),
-        );
-    }
 }
 
 fn spawn_table(
@@ -450,10 +459,17 @@ fn spawn_player(
         );
     }
 
+    let player_label = if id == 0 { "YOU" } else { "OPP" };
+    let chip_y_offset = if id == 0 {
+        config.player_label_offset
+    } else {
+        config.chip_label_offset
+    };
+
     commands.spawn((
         Text2dBundle {
             text: Text::from_section(
-                if id == 0 { "YOU" } else { "OPP" },
+                player_label,
                 TextStyle {
                     font_size: PLAYER_LABEL_FONT_SIZE,
                     color: Color::WHITE,
@@ -477,15 +493,14 @@ fn spawn_player(
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(x_pos, y_pos + config.chip_label_offset, 1.0),
+            transform: Transform::from_xyz(x_pos, y_pos + chip_y_offset, 1.0),
             ..default()
         },
         HandMarker,
     ));
 }
 
-fn spawn_card_text_entity(
-    commands: &mut Commands,
+struct CardTextParams {
     card: Card,
     target_pos: Vec3,
     offset_x: f32,
@@ -493,27 +508,51 @@ fn spawn_card_text_entity(
     rotation: f32,
     text_color: Color,
     font_size: f32,
-) {
-    commands.spawn((
-        Text2dBundle {
-            text: Text::from_section(
-                format!("{}\n{}", card.rank_str(), card.suit_str()),
-                TextStyle {
-                    font_size,
-                    color: text_color,
-                    ..default()
-                },
-            ),
-            transform: Transform::from_xyz(
-                target_pos.x + offset_x,
-                target_pos.y + offset_y,
-                CARD_TEXT_Z_POSITION,
-            )
-            .with_rotation(Quat::from_rotation_z(rotation)),
-            ..default()
-        },
-        HandMarker,
-    ));
+}
+
+impl CardTextParams {
+    fn new(
+        card: Card,
+        target_pos: Vec3,
+        offset_x: f32,
+        offset_y: f32,
+        rotation: f32,
+        text_color: Color,
+        font_size: f32,
+    ) -> Self {
+        CardTextParams {
+            card,
+            target_pos,
+            offset_x,
+            offset_y,
+            rotation,
+            text_color,
+            font_size,
+        }
+    }
+
+    fn spawn(&self, commands: &mut Commands) {
+        commands.spawn((
+            Text2dBundle {
+                text: Text::from_section(
+                    format!("{}\n{}", self.card.rank_str(), self.card.suit_str()),
+                    TextStyle {
+                        font_size: self.font_size,
+                        color: self.text_color,
+                        ..default()
+                    },
+                ),
+                transform: Transform::from_xyz(
+                    self.target_pos.x + self.offset_x,
+                    self.target_pos.y + self.offset_y,
+                    CARD_TEXT_Z_POSITION,
+                )
+                .with_rotation(Quat::from_rotation_z(self.rotation)),
+                ..default()
+            },
+            HandMarker,
+        ));
+    }
 }
 
 fn spawn_card_text(
@@ -524,8 +563,7 @@ fn spawn_card_text(
     font_size: f32,
     config: &GameConfig,
 ) {
-    spawn_card_text_entity(
-        commands,
+    CardTextParams::new(
         card,
         target_pos,
         -config.card_width / 2.0 + CARD_TEXT_TOP_OFFSET_X,
@@ -533,10 +571,10 @@ fn spawn_card_text(
         0.0,
         text_color,
         font_size,
-    );
+    )
+    .spawn(commands);
 
-    spawn_card_text_entity(
-        commands,
+    CardTextParams::new(
         card,
         target_pos,
         config.card_width / 2.0 + CARD_TEXT_BOTTOM_OFFSET_X,
@@ -544,7 +582,8 @@ fn spawn_card_text(
         std::f32::consts::PI,
         text_color,
         font_size,
-    );
+    )
+    .spawn(commands);
 }
 
 fn spawn_community_card(
@@ -1121,8 +1160,8 @@ mod game_tests {
     }
 
     #[test]
-    fn test_min_cards_for_reshuffle() {
-        assert_eq!(MIN_CARDS_FOR_RESHUFFLE, 9);
+    fn test_initial_hand_number() {
+        assert_eq!(INITIAL_HAND_NUMBER, 1);
     }
 
     #[test]
@@ -1367,5 +1406,11 @@ mod game_tests {
 
         assert_eq!(game_state.current_round, PokerRound::Showdown);
         assert!(game_state.showdown_timer > 0.0);
+    }
+
+    #[test]
+    fn test_min_cards_for_reshuffle_in_config() {
+        let config = GameConfig::default();
+        assert_eq!(config.min_cards_for_reshuffle, 9);
     }
 }
