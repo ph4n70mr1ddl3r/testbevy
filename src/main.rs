@@ -271,6 +271,7 @@ fn start_hand(
     game_state: &mut GameStateResource,
     config: &GameConfig,
     colors: ColorPalette,
+    animation_start_time: f32,
 ) {
     game_state.pot = 0;
     game_state.pot_remainder = 0;
@@ -307,11 +308,19 @@ fn start_hand(
             } else {
                 player_y_bottom
             },
+            animation_start_time,
         );
     }
 
     for i in 0..5 {
-        spawn_community_card(commands, game_state, config, &colors, i);
+        spawn_community_card(
+            commands,
+            game_state,
+            config,
+            &colors,
+            i,
+            animation_start_time,
+        );
     }
 
     spawn_ui(commands, game_state, config, &colors);
@@ -331,7 +340,13 @@ fn start_hand_system(
         game_state.action_tick = 0;
         game_state.winner = None;
         game_state.last_winner_message = "".to_string();
-        start_hand(&mut commands, &mut game_state, &config, *colors);
+        start_hand(
+            &mut commands,
+            &mut game_state,
+            &config,
+            *colors,
+            time.elapsed_seconds(),
+        );
     }
 }
 
@@ -382,6 +397,7 @@ fn spawn_player(
     id: usize,
     x_pos: f32,
     y_pos: f32,
+    animation_start_time: f32,
 ) {
     let card_target_y = y_pos + config.card_target_y_offset;
 
@@ -426,7 +442,7 @@ fn spawn_player(
             DealAnimation {
                 start_pos: Vec3::new(0.0, config.animation_start_y, CARD_Z_POSITION),
                 target_pos,
-                start_time: 0.0,
+                start_time: animation_start_time,
                 duration: ANIMATION_DEAL_DURATION,
                 delay: (id * 2 + j) as f32 * ANIMATION_CARD_DEAL_DELAY,
             },
@@ -546,6 +562,7 @@ fn spawn_community_card(
     config: &GameConfig,
     colors: &ColorPalette,
     i: usize,
+    animation_start_time: f32,
 ) {
     let x_offset = (i as f32 - 2.0) * config.card_offset_spacing;
     let community_card = if let Some(c) = game_state.deck.draw() {
@@ -594,7 +611,7 @@ fn spawn_community_card(
                 COMMUNITY_CARD_Z_POSITION,
             ),
             target_pos,
-            start_time: 0.0,
+            start_time: animation_start_time,
             duration: ANIMATION_COMMUNITY_DURATION,
             delay: ANIMATION_COMMUNITY_DELAY_START + i as f32 * ANIMATION_COMMUNITY_DELAY_INCREMENT,
         },
@@ -942,6 +959,7 @@ fn handle_showdown(
     mut game_state: ResMut<GameStateResource>,
     config: Res<GameConfig>,
     colors: Res<ColorPalette>,
+    time: Res<Time>,
 ) {
     if game_state.current_round == PokerRound::Showdown && game_state.showdown_timer <= 0.0 {
         if game_state.winner.is_none() {
@@ -950,7 +968,13 @@ fn handle_showdown(
 
         game_state.current_round = PokerRound::PreFlop;
         game_state.showdown_timer = -1.0;
-        start_hand(&mut commands, &mut game_state, &config, *colors);
+        start_hand(
+            &mut commands,
+            &mut game_state,
+            &config,
+            *colors,
+            time.elapsed_seconds(),
+        );
     }
 }
 
@@ -1059,7 +1083,7 @@ fn update_ui(
     };
 
     if let Some(mut text) = text_queries.p5().iter_mut().next() {
-        text.sections[0].value = action_text.to_string();
+        text.sections[0].value = action_text;
     }
 }
 
