@@ -590,7 +590,7 @@ fn spawn_card_text(
         target_pos,
         config.card_width / 2.0 + CARD_TEXT_BOTTOM_OFFSET_X,
         -config.card_height / 2.0 + CARD_TEXT_BOTTOM_OFFSET_Y,
-        std::f32::consts::PI,
+        core::f32::consts::PI,
         text_color,
         font_size,
     )
