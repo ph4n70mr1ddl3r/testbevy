@@ -4,7 +4,6 @@ use rand::prelude::{thread_rng, SliceRandom};
 mod poker_logic;
 use poker_logic::{determine_winner, Card, Deck, PokerRound};
 
-const INITIAL_HAND_NUMBER: i32 = 1;
 const PLAYER_COUNT: usize = 2;
 
 #[derive(Resource)]
@@ -1040,6 +1039,7 @@ fn distribute_pot(game_state: &mut GameStateResource, winner: usize) {
     let total_pot = game_state.pot + game_state.pot_remainder;
     game_state.player_chips[winner] = game_state.player_chips[winner].saturating_add(total_pot);
     game_state.last_winner_message = if winner == 0 { "P1 wins" } else { "P2 wins" }.to_string();
+    game_state.pot_remainder = 0;
 }
 
 fn split_pot(game_state: &mut GameStateResource) {
@@ -1158,11 +1158,6 @@ mod game_tests {
         let config = GameConfig::default();
         assert_eq!(format!("Bet {}", config.bet_amount), "Bet 50");
         assert_eq!(format!("Raise {}", config.raise_amount), "Raise 100");
-    }
-
-    #[test]
-    fn test_initial_hand_number() {
-        assert_eq!(INITIAL_HAND_NUMBER, 1);
     }
 
     #[test]
@@ -1352,6 +1347,19 @@ mod game_tests {
 
         assert_eq!(game_state.player_chips[0], 150);
         assert_eq!(game_state.player_chips[1], 150);
+        assert_eq!(game_state.pot_remainder, 0);
+    }
+
+    #[test]
+    fn test_distribute_pot_includes_remainder() {
+        let mut game_state = GameStateResource::default();
+        game_state.player_chips = [100, 100];
+        game_state.pot = 100;
+        game_state.pot_remainder = 1;
+
+        distribute_pot(&mut game_state, 0);
+
+        assert_eq!(game_state.player_chips[0], 201);
         assert_eq!(game_state.pot_remainder, 0);
     }
 
