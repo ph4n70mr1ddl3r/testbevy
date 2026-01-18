@@ -219,8 +219,8 @@ pub struct EvaluatedHand {
 }
 
 impl EvaluatedHand {
-    pub fn score(&self) -> (HandRank, Vec<Rank>) {
-        (self.hand_rank.clone(), self.primary_values.clone())
+    pub fn score(&self) -> (HandRank, &[Rank]) {
+        (self.hand_rank.clone(), &self.primary_values)
     }
 }
 

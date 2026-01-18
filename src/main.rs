@@ -165,7 +165,7 @@ struct CardEntity;
 #[derive(Component)]
 struct HandMarker;
 
-#[derive(Component)]
+#[derive(Component, Default)]
 struct DealAnimation {
     start_pos: Vec3,
     target_pos: Vec3,
@@ -590,7 +590,7 @@ fn spawn_card_text(
         target_pos,
         config.card_width / 2.0 + CARD_TEXT_BOTTOM_OFFSET_X,
         -config.card_height / 2.0 + CARD_TEXT_BOTTOM_OFFSET_Y,
-        core::f32::consts::PI,
+        std::f32::consts::PI,
         text_color,
         font_size,
     )
@@ -1177,50 +1177,52 @@ mod game_tests {
 
     #[test]
     fn test_animation_constants() {
-        assert!(ANIMATION_CARD_DEAL_DELAY > 0.0);
-        assert!(ANIMATION_DEAL_DURATION > 0.0);
-        assert!(ANIMATION_COMMUNITY_DURATION > 0.0);
-        assert!(ANIMATION_EASING_POWER > 0);
+        const _: () = assert!(ANIMATION_CARD_DEAL_DELAY > 0.0);
+        const _: () = assert!(ANIMATION_DEAL_DURATION > 0.0);
+        const _: () = assert!(ANIMATION_COMMUNITY_DURATION > 0.0);
+        const _: () = assert!(ANIMATION_EASING_POWER > 0);
     }
 
     #[test]
     fn test_font_sizes_are_reasonable() {
-        assert!(POT_FONT_SIZE > 0.0);
-        assert!(HAND_NUMBER_FONT_SIZE > 0.0);
-        assert!(PLAYER_CHIPS_FONT_SIZE > 0.0);
-        assert!(ROUND_FONT_SIZE > 0.0);
-        assert!(ACTION_FONT_SIZE > 0.0);
+        const _: () = assert!(POT_FONT_SIZE > 0.0);
+        const _: () = assert!(HAND_NUMBER_FONT_SIZE > 0.0);
+        const _: () = assert!(PLAYER_CHIPS_FONT_SIZE > 0.0);
+        const _: () = assert!(ROUND_FONT_SIZE > 0.0);
+        const _: () = assert!(ACTION_FONT_SIZE > 0.0);
     }
 
     #[test]
     fn test_z_positions_are_ordered() {
-        assert!(CARD_TEXT_Z_POSITION > CARD_Z_POSITION);
-        assert!(COMMUNITY_CARD_Z_POSITION < CARD_Z_POSITION);
+        const _: () = assert!(CARD_TEXT_Z_POSITION > CARD_Z_POSITION);
+        const _: () = assert!(COMMUNITY_CARD_Z_POSITION < CARD_Z_POSITION);
     }
 
     #[test]
     fn test_player_y_ratios() {
-        assert!(PLAYER_Y_TOP_RATIO > 0.0);
-        assert!(PLAYER_Y_BOTTOM_RATIO < 0.0);
+        const _: () = assert!(PLAYER_Y_TOP_RATIO > 0.0);
+        const _: () = assert!(PLAYER_Y_BOTTOM_RATIO < 0.0);
         assert_eq!(PLAYER_Y_TOP_RATIO, 0.25);
         assert_eq!(PLAYER_Y_BOTTOM_RATIO, -0.32);
     }
 
     #[test]
     fn test_table_dimensions() {
-        assert!(TABLE_DARK_WIDTH_RATIO > TABLE_LIGHT_WIDTH_RATIO);
-        assert!(TABLE_DARK_HEIGHT_RATIO > TABLE_LIGHT_HEIGHT_RATIO);
+        const _: () = assert!(TABLE_DARK_WIDTH_RATIO > TABLE_LIGHT_WIDTH_RATIO);
+        const _: () = assert!(TABLE_DARK_HEIGHT_RATIO > TABLE_LIGHT_HEIGHT_RATIO);
         assert_eq!(TABLE_DARK_WIDTH_RATIO, 1.0);
         assert_eq!(TABLE_LIGHT_WIDTH_RATIO, 0.94);
     }
 
     #[test]
     fn test_get_valid_actions_check_only() {
-        let mut game_state = GameStateResource::default();
-        game_state.current_player = 0;
-        game_state.player_chips = [100, 100];
-        game_state.player_bets = [0, 0];
-        game_state.current_bet = 0;
+        let game_state = GameStateResource {
+            current_player: 0,
+            player_chips: [100, 100],
+            player_bets: [0, 0],
+            current_bet: 0,
+            ..Default::default()
+        };
         let config = GameConfig::default();
 
         let actions = get_valid_actions(&game_state, &config);
@@ -1234,11 +1236,13 @@ mod game_tests {
 
     #[test]
     fn test_get_valid_actions_must_call() {
-        let mut game_state = GameStateResource::default();
-        game_state.current_player = 1;
-        game_state.player_chips = [100, 200];
-        game_state.player_bets = [50, 0];
-        game_state.current_bet = 50;
+        let game_state = GameStateResource {
+            current_player: 1,
+            player_chips: [100, 200],
+            player_bets: [50, 0],
+            current_bet: 50,
+            ..Default::default()
+        };
         let config = GameConfig::default();
 
         let actions = get_valid_actions(&game_state, &config);
@@ -1252,11 +1256,13 @@ mod game_tests {
 
     #[test]
     fn test_get_valid_actions_cannot_raise_without_chips() {
-        let mut game_state = GameStateResource::default();
-        game_state.current_player = 1;
-        game_state.player_chips = [200, 51];
-        game_state.player_bets = [50, 0];
-        game_state.current_bet = 50;
+        let game_state = GameStateResource {
+            current_player: 1,
+            player_chips: [200, 51],
+            player_bets: [50, 0],
+            current_bet: 50,
+            ..Default::default()
+        };
         let config = GameConfig::default();
 
         let actions = get_valid_actions(&game_state, &config);
@@ -1267,11 +1273,13 @@ mod game_tests {
 
     #[test]
     fn test_get_valid_actions_can_bet() {
-        let mut game_state = GameStateResource::default();
-        game_state.current_player = 0;
-        game_state.player_chips = [100, 100];
-        game_state.player_bets = [0, 0];
-        game_state.current_bet = 0;
+        let game_state = GameStateResource {
+            current_player: 0,
+            player_chips: [100, 100],
+            player_bets: [0, 0],
+            current_bet: 0,
+            ..Default::default()
+        };
         let config = GameConfig::default();
 
         let actions = get_valid_actions(&game_state, &config);
@@ -1285,11 +1293,13 @@ mod game_tests {
 
     #[test]
     fn test_get_valid_actions_can_raise() {
-        let mut game_state = GameStateResource::default();
-        game_state.current_player = 1;
-        game_state.player_chips = [200, 200];
-        game_state.player_bets = [50, 0];
-        game_state.current_bet = 50;
+        let game_state = GameStateResource {
+            current_player: 1,
+            player_chips: [200, 200],
+            player_bets: [50, 0],
+            current_bet: 50,
+            ..Default::default()
+        };
         let config = GameConfig::default();
 
         let actions = get_valid_actions(&game_state, &config);
@@ -1300,12 +1310,14 @@ mod game_tests {
 
     #[test]
     fn test_place_bet_updates_state() {
-        let mut game_state = GameStateResource::default();
-        game_state.player_chips = [100, 100];
-        game_state.player_bets = [0, 0];
-        game_state.pot = 0;
-        game_state.current_bet = 0;
-        game_state.current_player = 0;
+        let mut game_state = GameStateResource {
+            player_chips: [100, 100],
+            player_bets: [0, 0],
+            pot: 0,
+            current_bet: 0,
+            current_player: 0,
+            ..Default::default()
+        };
 
         place_bet(&mut game_state, 50, true, 50);
 
@@ -1317,12 +1329,14 @@ mod game_tests {
 
     #[test]
     fn test_place_bet_all_in() {
-        let mut game_state = GameStateResource::default();
-        game_state.player_chips = [100, 100];
-        game_state.player_bets = [0, 0];
-        game_state.pot = 0;
-        game_state.current_bet = 0;
-        game_state.current_player = 0;
+        let mut game_state = GameStateResource {
+            player_chips: [100, 100],
+            player_bets: [0, 0],
+            pot: 0,
+            current_bet: 0,
+            current_player: 0,
+            ..Default::default()
+        };
 
         place_bet(&mut game_state, 200, true, 200);
 
@@ -1333,10 +1347,12 @@ mod game_tests {
 
     #[test]
     fn test_split_pot_with_remainder() {
-        let mut game_state = GameStateResource::default();
-        game_state.player_chips = [100, 100];
-        game_state.pot = 100;
-        game_state.pot_remainder = 1;
+        let mut game_state = GameStateResource {
+            player_chips: [100, 100],
+            pot: 100,
+            pot_remainder: 1,
+            ..Default::default()
+        };
 
         split_pot(&mut game_state);
 
@@ -1347,10 +1363,12 @@ mod game_tests {
 
     #[test]
     fn test_split_pot_clears_pot() {
-        let mut game_state = GameStateResource::default();
-        game_state.player_chips = [100, 100];
-        game_state.pot = 100;
-        game_state.pot_remainder = 0;
+        let mut game_state = GameStateResource {
+            player_chips: [100, 100],
+            pot: 100,
+            pot_remainder: 0,
+            ..Default::default()
+        };
 
         split_pot(&mut game_state);
 
@@ -1361,10 +1379,12 @@ mod game_tests {
 
     #[test]
     fn test_distribute_pot_includes_remainder() {
-        let mut game_state = GameStateResource::default();
-        game_state.player_chips = [100, 100];
-        game_state.pot = 100;
-        game_state.pot_remainder = 1;
+        let mut game_state = GameStateResource {
+            player_chips: [100, 100],
+            pot: 100,
+            pot_remainder: 1,
+            ..Default::default()
+        };
 
         distribute_pot(&mut game_state, 0);
 
@@ -1374,8 +1394,10 @@ mod game_tests {
 
     #[test]
     fn test_draw_card_returns_card() {
-        let mut game_state = GameStateResource::default();
-        game_state.deck = Deck::new();
+        let mut game_state = GameStateResource {
+            deck: Deck::new(),
+            ..Default::default()
+        };
         let initial_remaining = game_state.deck.cards_remaining();
 
         let card = draw_card(&mut game_state);
@@ -1386,8 +1408,10 @@ mod game_tests {
 
     #[test]
     fn test_draw_card_emergency_reshuffle() {
-        let mut game_state = GameStateResource::default();
-        game_state.deck = Deck::new();
+        let mut game_state = GameStateResource {
+            deck: Deck::new(),
+            ..Default::default()
+        };
         while game_state.deck.cards_remaining() > 0 {
             game_state.deck.draw();
         }
@@ -1399,11 +1423,13 @@ mod game_tests {
 
     #[test]
     fn test_advance_street_check_check() {
-        let mut game_state = GameStateResource::default();
-        game_state.current_round = PokerRound::PreFlop;
-        game_state.player_bets = [0, 0];
-        game_state.current_bet = 0;
-        game_state.dealer_position = 0;
+        let mut game_state = GameStateResource {
+            current_round: PokerRound::PreFlop,
+            player_bets: [0, 0],
+            current_bet: 0,
+            dealer_position: 0,
+            ..Default::default()
+        };
         let config = GameConfig::default();
 
         advance_street(&mut game_state, &config);
@@ -1415,11 +1441,13 @@ mod game_tests {
 
     #[test]
     fn test_advance_street_both_matched() {
-        let mut game_state = GameStateResource::default();
-        game_state.current_round = PokerRound::Flop;
-        game_state.player_bets = [50, 50];
-        game_state.current_bet = 50;
-        game_state.dealer_position = 0;
+        let mut game_state = GameStateResource {
+            current_round: PokerRound::Flop,
+            player_bets: [50, 50],
+            current_bet: 50,
+            dealer_position: 0,
+            ..Default::default()
+        };
         let config = GameConfig::default();
 
         advance_street(&mut game_state, &config);
@@ -1431,11 +1459,13 @@ mod game_tests {
 
     #[test]
     fn test_advance_street_not_ready() {
-        let mut game_state = GameStateResource::default();
-        game_state.current_round = PokerRound::PreFlop;
-        game_state.player_bets = [50, 0];
-        game_state.current_bet = 50;
-        game_state.dealer_position = 0;
+        let mut game_state = GameStateResource {
+            current_round: PokerRound::PreFlop,
+            player_bets: [50, 0],
+            current_bet: 50,
+            dealer_position: 0,
+            ..Default::default()
+        };
         let config = GameConfig::default();
 
         advance_street(&mut game_state, &config);
@@ -1446,12 +1476,14 @@ mod game_tests {
 
     #[test]
     fn test_advance_street_to_showdown() {
-        let mut game_state = GameStateResource::default();
-        game_state.current_round = PokerRound::River;
-        game_state.player_bets = [100, 100];
-        game_state.current_bet = 100;
-        game_state.dealer_position = 0;
-        game_state.showdown_timer = 0.0;
+        let mut game_state = GameStateResource {
+            current_round: PokerRound::River,
+            player_bets: [100, 100],
+            current_bet: 100,
+            dealer_position: 0,
+            showdown_timer: 0.0,
+            ..Default::default()
+        };
         let config = GameConfig::default();
 
         advance_street(&mut game_state, &config);
