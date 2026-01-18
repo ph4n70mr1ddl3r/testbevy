@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use rand::{seq::SliceRandom, thread_rng};
+use rand::prelude::{thread_rng, SliceRandom};
 
 mod poker_logic;
 use poker_logic::{determine_winner, Card, Deck, PokerRound};
@@ -276,9 +276,7 @@ fn start_hand_system(
     colors: Res<ColorPalette>,
     time: Res<Time>,
 ) {
-    if game_state.hand_number == INITIAL_HAND_NUMBER
-        || game_state.showdown_timer < SHOWDOWN_TIMER_RESET_THRESHOLD
-    {
+    if game_state.hand_number == 0 || game_state.showdown_timer < SHOWDOWN_TIMER_RESET_THRESHOLD {
         game_state.needs_cleanup = true;
         game_state.animation_start_time = time.elapsed_seconds();
         game_state.showdown_timer = 0.0;
@@ -419,12 +417,11 @@ fn spawn_player(
         let target_pos = Vec3::new(x_pos + card_offset, card_target_y, 1.0);
         let card = draw_card(game_state);
 
-        let player_hole = if id == 0 {
-            &mut game_state.p1_hole
+        if id == 0 {
+            game_state.p1_hole[j] = card;
         } else {
-            &mut game_state.p2_hole
-        };
-        player_hole[j] = card;
+            game_state.p2_hole[j] = card;
+        }
 
         let text_color = if card.is_red() {
             colors.card_text_red
@@ -603,7 +600,7 @@ fn spawn_community_card(
 
     game_state.community_cards[i] = community_card;
 
-    let is_hidden = i >= 3;
+    let is_hidden = matches!(i, 3 | 4);
 
     let target_pos = Vec3::new(x_offset, 0.0, CARD_TARGET_Z);
 
@@ -923,10 +920,10 @@ fn draw_card(game_state: &mut GameStateResource) -> Card {
     if let Some(c) = game_state.deck.draw() {
         c
     } else {
-        error!("Deck empty - creating emergency deck");
+        warn!("Deck empty - creating emergency deck");
         game_state.deck = Deck::new();
         game_state.deck.draw().unwrap_or_else(|| {
-            error!("Emergency deck creation failed - using placeholder card");
+            warn!("Emergency deck creation failed - using placeholder card");
             Card::default()
         })
     }
