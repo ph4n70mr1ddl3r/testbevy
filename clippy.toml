@@ -1,0 +1,9 @@
+# Clippy lints for poker_simulation
+# Configuration for clippy lints
+
+# Threshold configurations
+too-many-arguments-threshold = 10
+too-many-lines-threshold = 300
+type-complexity-threshold = 250
+cognitive-complexity-threshold = 25
+excessive-nesting-threshold = 4

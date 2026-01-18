@@ -7,6 +7,8 @@ use poker_logic::{determine_winner, Card, Deck, PokerRound};
 const PLAYER_COUNT: usize = 2;
 
 #[derive(Resource)]
+/// Configuration resource for game settings including display dimensions,
+/// animation timing, betting amounts, and UI layout positions.
 struct GameConfig {
     card_width: f32,
     card_height: f32,
@@ -66,6 +68,8 @@ impl Default for GameConfig {
 }
 
 #[derive(Clone, Copy, PartialEq, Resource)]
+/// Color palette resource for consistent styling across the game UI.
+/// Contains all color values used for cards, table, text, and chips.
 struct ColorPalette {
     card_text_red: Color,
     card_text_black: Color,
@@ -141,7 +145,11 @@ const CARD_TEXT_Z_POSITION: f32 = 1.1;
 const COMMUNITY_CARD_Z_POSITION: f32 = 0.5;
 const CARD_TARGET_Z: f32 = 1.0;
 
-fn get_round_name(round: PokerRound) -> &'static str {
+const FLOP_CARD_COUNT: usize = 3;
+const TURN_CARD_COUNT: usize = 4;
+const RIVER_CARD_COUNT: usize = 5;
+
+const fn get_round_name(round: PokerRound) -> &'static str {
     match round {
         PokerRound::PreFlop => "Pre-Flop",
         PokerRound::Flop => "Flop",
@@ -167,6 +175,8 @@ struct DealAnimation {
 }
 
 #[derive(Resource, Default)]
+/// Main game state resource tracking all game data including deck, pot,
+/// current round, player states, chips, bets, and community cards.
 struct GameStateResource {
     deck: Deck,
     pot: u32,
@@ -215,6 +225,7 @@ struct RoundDisplay;
 struct ActionDisplay;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+/// Represents all possible poker actions a player can take during a betting round.
 enum PokerAction {
     Check,
     Bet,
@@ -1063,9 +1074,9 @@ fn update_card_visuals(
     for (mut sprite, community_card) in query.iter_mut() {
         if let Some(cc) = community_card {
             let should_reveal = match game_state.current_round {
-                PokerRound::Flop => cc.index < 3,
-                PokerRound::Turn => cc.index < 4,
-                PokerRound::River | PokerRound::Showdown => cc.index < 5,
+                PokerRound::Flop => cc.index < FLOP_CARD_COUNT,
+                PokerRound::Turn => cc.index < TURN_CARD_COUNT,
+                PokerRound::River | PokerRound::Showdown => cc.index < RIVER_CARD_COUNT,
                 _ => false,
             };
 
@@ -1082,32 +1093,30 @@ fn update_card_visuals(
 
 fn update_ui(
     game_state: Res<GameStateResource>,
-    mut text_queries: ParamSet<(
-        Query<&mut Text, With<PotDisplay>>,
-        Query<&mut Text, With<HandNumberDisplay>>,
-        Query<&mut Text, With<PlayerChipsDisplay>>,
-        Query<&mut Text, With<OpponentChipsDisplay>>,
-        Query<&mut Text, With<RoundDisplay>>,
-        Query<&mut Text, With<ActionDisplay>>,
-    )>,
+    mut pot_query: Query<&mut Text, With<PotDisplay>>,
+    mut hand_number_query: Query<&mut Text, With<HandNumberDisplay>>,
+    mut player_chips_query: Query<&mut Text, With<PlayerChipsDisplay>>,
+    mut opponent_chips_query: Query<&mut Text, With<OpponentChipsDisplay>>,
+    mut round_query: Query<&mut Text, With<RoundDisplay>>,
+    mut action_query: Query<&mut Text, With<ActionDisplay>>,
 ) {
-    for mut text in text_queries.p0().iter_mut() {
+    for mut text in pot_query.iter_mut() {
         text.sections[0].value = format!("Pot: ${}", game_state.pot);
     }
 
-    for mut text in text_queries.p1().iter_mut() {
+    for mut text in hand_number_query.iter_mut() {
         text.sections[0].value = format!("Hand: #{}", game_state.hand_number);
     }
 
-    for mut text in text_queries.p2().iter_mut() {
+    for mut text in player_chips_query.iter_mut() {
         text.sections[0].value = format!("Chips: ${}", game_state.player_chips[0]);
     }
 
-    for mut text in text_queries.p3().iter_mut() {
+    for mut text in opponent_chips_query.iter_mut() {
         text.sections[0].value = format!("P2: ${}", game_state.player_chips[1]);
     }
 
-    for mut text in text_queries.p4().iter_mut() {
+    for mut text in round_query.iter_mut() {
         text.sections[0].value = get_round_name(game_state.current_round).to_string();
     }
 
@@ -1117,7 +1126,7 @@ fn update_ui(
         game_state.last_action.clone()
     };
 
-    if let Some(mut text) = text_queries.p5().iter_mut().next() {
+    if let Some(mut text) = action_query.iter_mut().next() {
         text.sections[0].value = action_text;
     }
 }
