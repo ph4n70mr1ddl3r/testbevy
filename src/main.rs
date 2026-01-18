@@ -261,7 +261,7 @@ fn setup_game(
     config: Res<GameConfig>,
 ) {
     commands.spawn((Camera2d, HandMarker));
-    game_state.hand_number = 1;
+    game_state.hand_number = 0;
     game_state.player_chips = [config.starting_chips; PLAYER_COUNT];
     game_state.player_bets = [0; PLAYER_COUNT];
     game_state.current_bet = 0;
@@ -306,7 +306,11 @@ fn start_hand(
     game_state.pot_remainder = 0;
     game_state.current_round = PokerRound::PreFlop;
     game_state.last_action = "New hand".to_string();
-    game_state.hand_number += 1;
+    if game_state.hand_number > 0 {
+        game_state.hand_number += 1;
+    } else {
+        game_state.hand_number = 1;
+    }
     game_state.showdown_timer = 0.0;
     game_state.dealer_position = (game_state.dealer_position + 1) % PLAYER_COUNT;
     game_state.current_player = (game_state.dealer_position + 1) % PLAYER_COUNT;
@@ -899,12 +903,11 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
                 game_state.player_chips[winner].saturating_add(game_state.pot);
             game_state.player_chips[winner] =
                 game_state.player_chips[winner].saturating_add(game_state.pot_remainder);
-            game_state.last_winner_message = if game_state.current_player == 0 {
-                "P1 folded - P2 wins"
-            } else {
-                "P2 folded - P1 wins"
-            }
-            .to_string();
+            game_state.last_winner_message = format!(
+                "P{} folds - P{} wins",
+                game_state.current_player + 1,
+                winner + 1
+            );
             game_state.pot = 0;
             game_state.pot_remainder = 0;
             game_state.current_round = PokerRound::Showdown;
@@ -1043,11 +1046,12 @@ fn distribute_pot(game_state: &mut GameStateResource, winner: usize) {
 }
 
 fn split_pot(game_state: &mut GameStateResource) {
-    let split_amount = game_state.pot / 2;
-    let remainder = game_state.pot % 2;
+    let total_pot = game_state.pot + game_state.pot_remainder;
+    let split_amount = total_pot / 2;
+    let remainder = total_pot % 2;
     game_state.player_chips[0] = game_state.player_chips[0].saturating_add(split_amount);
     game_state.player_chips[1] = game_state.player_chips[1].saturating_add(split_amount);
-    game_state.pot_remainder += remainder;
+    game_state.pot_remainder = remainder;
     game_state.last_winner_message = "Split pot".to_string();
 }
 
@@ -1162,6 +1166,12 @@ mod game_tests {
     #[test]
     fn test_initial_hand_number() {
         assert_eq!(INITIAL_HAND_NUMBER, 1);
+    }
+
+    #[test]
+    fn test_hand_number_starts_at_zero() {
+        let game_state = GameStateResource::default();
+        assert_eq!(game_state.hand_number, 0);
     }
 
     #[test]
@@ -1318,6 +1328,34 @@ mod game_tests {
         assert_eq!(game_state.player_chips[0], 0);
         assert_eq!(game_state.player_bets[0], 100);
         assert_eq!(game_state.pot, 100);
+    }
+
+    #[test]
+    fn test_split_pot_with_remainder() {
+        let mut game_state = GameStateResource::default();
+        game_state.player_chips = [100, 100];
+        game_state.pot = 100;
+        game_state.pot_remainder = 1;
+
+        split_pot(&mut game_state);
+
+        assert_eq!(game_state.player_chips[0], 150);
+        assert_eq!(game_state.player_chips[1], 150);
+        assert_eq!(game_state.pot_remainder, 1);
+    }
+
+    #[test]
+    fn test_split_pot_clears_pot() {
+        let mut game_state = GameStateResource::default();
+        game_state.player_chips = [100, 100];
+        game_state.pot = 100;
+        game_state.pot_remainder = 0;
+
+        split_pot(&mut game_state);
+
+        assert_eq!(game_state.player_chips[0], 150);
+        assert_eq!(game_state.player_chips[1], 150);
+        assert_eq!(game_state.pot_remainder, 0);
     }
 
     #[test]
