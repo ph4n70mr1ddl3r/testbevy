@@ -167,7 +167,7 @@ fn find_straight_high(ranks: &HashSet<Rank>) -> Option<Rank> {
     ];
 
     for (mask, rank) in STRAIGHT_HIGH_MAP.iter() {
-        if (rank_bits & *mask) == *mask {
+        if (rank_bits & mask) == *mask {
             return Some(*rank);
         }
     }
@@ -198,7 +198,7 @@ pub enum PokerRound {
 /// Represents the ranking of a poker hand.
 /// The derived `Ord` implementation follows standard poker hand rankings:
 /// HighCard < Pair < TwoPair < ThreeOfAKind < Straight < Flush < FullHouse < FourOfAKind < StraightFlush
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum HandRank {
     HighCard,
     Pair,
@@ -220,7 +220,7 @@ pub struct EvaluatedHand {
 
 impl EvaluatedHand {
     pub fn score(&self) -> (HandRank, &[Rank]) {
-        (self.hand_rank.clone(), &self.primary_values)
+        (self.hand_rank, &self.primary_values)
     }
 }
 
