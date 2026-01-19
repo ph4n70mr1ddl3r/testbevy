@@ -270,47 +270,60 @@ pub fn evaluate_current_hand_strength(game_state: &GameStateResource) -> f32 {
     }
 }
 
-/// Chooses an action based on hand strength and available actions.
-/// Uses a simple strategy: fold weak hands, check/call medium hands, bet/raise strong hands.
+/// Chooses an action based on hand strength, position, and pot odds.
+/// Uses a more sophisticated strategy considering multiple factors.
 pub fn choose_action_based_on_strength<'a>(
     actions: &'a [PokerAction],
     strength: f32,
     game_state: &GameStateResource,
     _config: &GameConfig,
 ) -> &'a PokerAction {
-    // Simple strategy: fold if weak, check/call if medium, bet/raise if strong
     let current_bet = game_state.current_bet;
     let player_bet = game_state.player_bets[game_state.current_player];
-    let _to_call = current_bet - player_bet;
+    let to_call = current_bet.saturating_sub(player_bet);
+    let pot_size = game_state.pot + game_state.pot_remainder;
+    let _player_chips = game_state.player_chips[game_state.current_player];
 
-    if strength < 0.3 {
-        // Weak hand: fold if possible, otherwise check
-        if actions.contains(&PokerAction::Fold) {
+    // Calculate pot odds
+    let pot_odds = if to_call > 0 {
+        (to_call as f32) / (pot_size as f32 + to_call as f32)
+    } else {
+        0.0
+    };
+
+    // Position advantage (dealer acts last)
+    let is_dealer = game_state.current_player == game_state.dealer_position;
+    let position_bonus = if is_dealer { 0.1 } else { 0.0 };
+
+    // Adjust strength based on position and pot odds
+    let adjusted_strength = (strength + position_bonus).min(1.0);
+
+    // Preflop adjustments
+    let preflop_adjustment = if game_state.current_round == PokerRound::PreFlop {
+        // Be more aggressive preflop with position
+        if is_dealer {
+            0.05
+        } else {
+            -0.05
+        }
+    } else {
+        0.0
+    };
+    let final_strength = (adjusted_strength + preflop_adjustment).clamp(0.0, 1.0);
+
+    // Decision thresholds based on strength and pot odds
+    if final_strength < 0.25 || (final_strength < 0.4 && pot_odds > 0.3) {
+        // Weak hand or bad pot odds: fold if possible
+        if actions.contains(&PokerAction::Fold) && to_call > 0 {
             return actions
                 .iter()
                 .find(|a| matches!(a, PokerAction::Fold))
                 .unwrap();
-        } else if actions.contains(&PokerAction::Check) {
-            return actions
-                .iter()
-                .find(|a| matches!(a, PokerAction::Check))
-                .unwrap();
         }
-    } else if strength < 0.6 {
-        // Medium hand: check or call
-        if actions.contains(&PokerAction::Check) {
-            return actions
-                .iter()
-                .find(|a| matches!(a, PokerAction::Check))
-                .unwrap();
-        } else if actions.contains(&PokerAction::Call) {
-            return actions
-                .iter()
-                .find(|a| matches!(a, PokerAction::Call))
-                .unwrap();
-        }
-    } else {
-        // Strong hand: bet or raise if possible
+    }
+
+    if final_strength >= 0.7 {
+        // Very strong hand: raise or bet
         if actions.contains(&PokerAction::Raise) {
             return actions
                 .iter()
@@ -321,16 +334,44 @@ pub fn choose_action_based_on_strength<'a>(
                 .iter()
                 .find(|a| matches!(a, PokerAction::Bet))
                 .unwrap();
-        } else if actions.contains(&PokerAction::Check) {
+        }
+    } else if final_strength >= 0.5 {
+        // Medium-strong hand: call or check
+        if actions.contains(&PokerAction::Check) {
             return actions
                 .iter()
                 .find(|a| matches!(a, PokerAction::Check))
                 .unwrap();
+        } else if actions.contains(&PokerAction::Call) && pot_odds < 0.25 {
+            return actions
+                .iter()
+                .find(|a| matches!(a, PokerAction::Call))
+                .unwrap();
+        }
+    } else if final_strength >= 0.3 {
+        // Medium hand: check or call with good pot odds
+        if actions.contains(&PokerAction::Check) {
+            return actions
+                .iter()
+                .find(|a| matches!(a, PokerAction::Check))
+                .unwrap();
+        } else if actions.contains(&PokerAction::Call) && pot_odds < 0.2 {
+            return actions
+                .iter()
+                .find(|a| matches!(a, PokerAction::Call))
+                .unwrap();
         }
     }
 
-    // Fallback: first action
-    &actions[0]
+    // Default: check if available, otherwise first available action
+    if actions.contains(&PokerAction::Check) {
+        actions
+            .iter()
+            .find(|a| matches!(a, PokerAction::Check))
+            .unwrap()
+    } else {
+        &actions[0]
+    }
 }
 
 /// Returns all valid actions for the current player given the game state.
@@ -361,6 +402,7 @@ pub fn get_valid_actions(game_state: &GameStateResource, config: &GameConfig) ->
 }
 
 /// Places a bet for the current player, updating chips and pot accordingly.
+/// Ensures no negative chip counts and proper bounds checking.
 pub fn place_bet(
     game_state: &mut GameStateResource,
     amount: u32,
@@ -368,11 +410,19 @@ pub fn place_bet(
     new_current_bet: u32,
 ) {
     let player_idx = game_state.current_player;
+    if player_idx >= game_state.player_chips.len() || player_idx >= game_state.player_bets.len() {
+        error!("Invalid player index: {}", player_idx);
+        return;
+    }
+
     let available_chips = game_state.player_chips[player_idx];
     let actual_amount = amount.min(available_chips);
-    game_state.player_chips[player_idx] -= actual_amount;
-    game_state.player_bets[player_idx] += actual_amount;
-    game_state.pot += actual_amount;
+    game_state.player_chips[player_idx] =
+        game_state.player_chips[player_idx].saturating_sub(actual_amount);
+    game_state.player_bets[player_idx] =
+        game_state.player_bets[player_idx].saturating_add(actual_amount);
+    game_state.pot = game_state.pot.saturating_add(actual_amount);
+
     if is_raise {
         game_state.current_bet = new_current_bet;
     }
@@ -495,7 +545,7 @@ pub fn draw_card(game_state: &mut GameStateResource) -> Result<Card, &'static st
         warn!("Deck empty - creating emergency deck");
         game_state.deck = Deck::new();
         game_state.deck.draw().ok_or_else(|| {
-            warn!("Emergency deck creation failed - using placeholder card");
+            error!("Emergency deck creation failed - this should never happen");
             "Failed to draw card from emergency deck"
         })
     }

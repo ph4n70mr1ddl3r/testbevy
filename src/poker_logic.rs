@@ -232,9 +232,19 @@ impl EvaluatedHand {
 }
 
 /// Evaluates a poker hand and returns its ranking and relevant card values.
-/// Uses standard poker hand ranking rules. For hands with multiple cards of the same rank,
-/// the highest rank card is used for comparison. For straights and flushes, the high card
-/// determines the hand strength. Returns a default high card hand for insufficient cards.
+/// Uses standard poker hand ranking rules with proper tie-breaking logic.
+///
+/// # Algorithm Overview
+/// 1. Filter out placeholder cards and validate minimum hand size
+/// 2. Count suits and ranks to identify flush and pair possibilities
+/// 3. Check for straight patterns using bit manipulation
+/// 4. Evaluate hands in ranking order (straight flush → four of a kind → etc.)
+/// 5. For each hand type, extract primary values and kickers for tie-breaking
+///
+/// # Tie-breaking Rules
+/// - Higher rank cards break ties
+/// - Kickers are used when primary ranks are equal
+/// - For flushes and straights, the highest card in the pattern wins
 pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
     let non_placeholder_count = cards.iter().filter(|c| !c.is_placeholder).count();
     if non_placeholder_count < MIN_CARDS_FOR_HAND_EVALUATION {
