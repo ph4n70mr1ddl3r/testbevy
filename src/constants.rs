@@ -1,13 +1,7 @@
 // Player and game setup
 pub const PLAYER_COUNT: usize = 2;
 
-// Animation constants
-pub const ANIMATION_CARD_DEAL_DELAY: f32 = 0.2;
-pub const ANIMATION_DEAL_DURATION: f32 = 0.5;
-pub const ANIMATION_COMMUNITY_DELAY_START: f32 = 0.9;
-pub const ANIMATION_COMMUNITY_DELAY_INCREMENT: f32 = 0.15;
-pub const ANIMATION_COMMUNITY_DURATION: f32 = 0.4;
-pub const ANIMATION_EASING_POWER: i32 = 3;
+// Animation constants are now in GameConfig
 
 // Font sizes
 pub const POT_FONT_SIZE: f32 = 22.0;

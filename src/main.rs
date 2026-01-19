@@ -1,14 +1,36 @@
 use bevy::prelude::*;
-use rand::prelude::{thread_rng, Rng};
 
 mod constants;
 mod poker_logic;
 use constants::*;
-use poker_logic::{determine_winner, Card, Deck, PokerRound};
+use poker_logic::{determine_winner, evaluate_hand, Card, Deck, HandRank, PokerRound};
 
 #[derive(Resource)]
 /// Configuration resource for game settings including display dimensions,
 /// animation timing, betting amounts, and UI layout positions.
+#[derive(Clone, Copy)]
+struct UIPositioning {
+    pot_display_y: f32,
+    hand_number_x: f32,
+    hand_number_y: f32,
+    round_display_x: f32,
+    round_display_y: f32,
+    action_display_y: f32,
+    player_label_offset: f32,
+    chip_label_offset: f32,
+}
+
+#[derive(Clone, Copy)]
+struct AnimationConfig {
+    card_deal_delay: f32,
+    deal_duration: f32,
+    community_delay_start: f32,
+    community_delay_increment: f32,
+    community_duration: f32,
+    easing_power: i32,
+}
+
+#[derive(Resource)]
 struct GameConfig {
     card_width: f32,
     card_height: f32,
@@ -25,14 +47,8 @@ struct GameConfig {
     raise_amount: u32,
     screen_width: f32,
     screen_height: f32,
-    pot_display_y: f32,
-    hand_number_x: f32,
-    hand_number_y: f32,
-    round_display_x: f32,
-    round_display_y: f32,
-    action_display_y: f32,
-    player_label_offset: f32,
-    chip_label_offset: f32,
+    ui_positions: UIPositioning,
+    animations: AnimationConfig,
     min_cards_for_reshuffle: usize,
 }
 
@@ -54,14 +70,24 @@ impl Default for GameConfig {
             raise_amount: 100,
             screen_width: 375.0,
             screen_height: 812.0,
-            pot_display_y: 130.0,
-            hand_number_x: -160.0,
-            hand_number_y: 360.0,
-            round_display_x: 140.0,
-            round_display_y: 360.0,
-            action_display_y: -180.0,
-            player_label_offset: 20.0,
-            chip_label_offset: -5.0,
+            ui_positions: UIPositioning {
+                pot_display_y: 130.0,
+                hand_number_x: -160.0,
+                hand_number_y: 360.0,
+                round_display_x: 140.0,
+                round_display_y: 360.0,
+                action_display_y: -180.0,
+                player_label_offset: 20.0,
+                chip_label_offset: -5.0,
+            },
+            animations: AnimationConfig {
+                card_deal_delay: 0.2,
+                deal_duration: 0.5,
+                community_delay_start: 0.9,
+                community_delay_increment: 0.15,
+                community_duration: 0.4,
+                easing_power: 3,
+            },
             min_cards_for_reshuffle: 9,
         }
     }
@@ -247,13 +273,7 @@ fn start_hand_system(
         game_state.action_tick = 0;
         game_state.winner = None;
         game_state.last_winner_message = "".to_string();
-        start_hand(
-            &mut commands,
-            &mut game_state,
-            &config,
-            *colors,
-            time.elapsed_seconds(),
-        );
+        start_hand(&mut commands, &mut game_state, &config, &colors, &time);
     }
 }
 
@@ -261,9 +281,10 @@ fn start_hand(
     commands: &mut Commands,
     game_state: &mut GameStateResource,
     config: &GameConfig,
-    colors: ColorPalette,
-    animation_start_time: f32,
+    colors: &ColorPalette,
+    time: &Time,
 ) {
+    let animation_start_time = time.elapsed_seconds();
     game_state.pot = 0;
     game_state.pot_remainder = 0;
     game_state.current_round = PokerRound::PreFlop;
@@ -285,11 +306,11 @@ fn start_hand(
         game_state.deck = Deck::new();
     }
 
-    spawn_table(commands, config.screen_width, config.screen_height, colors);
-    spawn_all_players(commands, game_state, config, colors, animation_start_time);
-    spawn_all_community_cards(commands, game_state, config, &colors, animation_start_time);
+    spawn_table(commands, config.screen_width, config.screen_height, *colors);
+    spawn_all_players(commands, game_state, config, *colors, animation_start_time);
+    spawn_all_community_cards(commands, game_state, config, colors, animation_start_time);
 
-    spawn_ui(commands, game_state, config, &colors);
+    spawn_ui(commands, game_state, config, colors);
 }
 
 fn spawn_table(
@@ -378,8 +399,8 @@ fn spawn_player(
                 start_pos: Vec3::new(0.0, config.animation_start_y, CARD_Z_POSITION),
                 target_pos,
                 start_time: animation_start_time,
-                duration: ANIMATION_DEAL_DURATION,
-                delay: (id * 2 + j) as f32 * ANIMATION_CARD_DEAL_DELAY,
+                duration: config.animations.deal_duration,
+                delay: (id * 2 + j) as f32 * config.animations.card_deal_delay,
             },
             HandMarker,
         ));
@@ -396,9 +417,9 @@ fn spawn_player(
 
     let player_label = if id == 0 { "YOU" } else { "OPP" };
     let chip_y_offset = if id == 0 {
-        config.player_label_offset
+        config.ui_positions.player_label_offset
     } else {
-        config.chip_label_offset
+        config.ui_positions.chip_label_offset
     };
 
     commands.spawn((
@@ -413,7 +434,7 @@ fn spawn_player(
             ),
             transform: Transform::from_xyz(
                 x_pos,
-                y_pos + config.player_label_offset,
+                y_pos + config.ui_positions.player_label_offset,
                 UI_TEXT_Z_POSITION,
             ),
             ..default()
@@ -575,8 +596,9 @@ fn spawn_community_card(
             ),
             target_pos,
             start_time: animation_start_time,
-            duration: ANIMATION_COMMUNITY_DURATION,
-            delay: ANIMATION_COMMUNITY_DELAY_START + i as f32 * ANIMATION_COMMUNITY_DELAY_INCREMENT,
+            duration: config.animations.community_duration,
+            delay: config.animations.community_delay_start
+                + i as f32 * config.animations.community_delay_increment,
         },
         HandMarker,
         CommunityCard {
@@ -671,7 +693,11 @@ fn spawn_ui(
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(0.0, config.pot_display_y, UI_TEXT_Z_POSITION),
+            transform: Transform::from_xyz(
+                0.0,
+                config.ui_positions.pot_display_y,
+                UI_TEXT_Z_POSITION,
+            ),
             ..default()
         },
         PotDisplay,
@@ -689,8 +715,8 @@ fn spawn_ui(
                 },
             ),
             transform: Transform::from_xyz(
-                config.hand_number_x,
-                config.hand_number_y,
+                config.ui_positions.hand_number_x,
+                config.ui_positions.hand_number_y,
                 UI_TEXT_Z_POSITION,
             ),
             ..default()
@@ -744,8 +770,8 @@ fn spawn_ui(
                 },
             ),
             transform: Transform::from_xyz(
-                config.round_display_x,
-                config.round_display_y,
+                config.ui_positions.round_display_x,
+                config.ui_positions.round_display_y,
                 UI_TEXT_Z_POSITION,
             ),
             ..default()
@@ -764,7 +790,11 @@ fn spawn_ui(
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(0.0, config.action_display_y, UI_TEXT_Z_POSITION),
+            transform: Transform::from_xyz(
+                0.0,
+                config.ui_positions.action_display_y,
+                UI_TEXT_Z_POSITION,
+            ),
             ..default()
         },
         ActionDisplay,
@@ -844,15 +874,121 @@ fn place_bet(
     }
 }
 
+fn evaluate_current_hand_strength(game_state: &GameStateResource) -> f32 {
+    let player_idx = game_state.current_player;
+    let hole_cards = if player_idx == 0 {
+        game_state.p1_hole
+    } else {
+        game_state.p2_hole
+    };
+    let mut cards: Vec<Card> = hole_cards.to_vec();
+
+    // Add community cards
+    cards.extend(
+        game_state
+            .community_cards
+            .iter()
+            .cloned()
+            .filter(|card| !card.is_placeholder),
+    );
+
+    if cards.len() < 5 {
+        // Preflop: simple evaluation based on card ranks
+        let ranks: Vec<u8> = cards.iter().map(|c| c.rank as u8).collect();
+        let mut score = 0.0;
+        for &rank in &ranks {
+            score += rank as f32 / 13.0; // Normalize to 0-1
+        }
+        score / 2.0 // Average
+    } else {
+        // Postflop: evaluate hand
+        let evaluated = evaluate_hand(&cards);
+        match evaluated.hand_rank {
+            HandRank::HighCard => 0.1 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1,
+            HandRank::Pair => 0.2 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1,
+            HandRank::TwoPair => 0.3 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1,
+            HandRank::ThreeOfAKind => 0.4 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1,
+            HandRank::Straight => 0.5 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1,
+            HandRank::Flush => 0.6 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1,
+            HandRank::FullHouse => 0.7 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1,
+            HandRank::FourOfAKind => 0.8 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1,
+            HandRank::StraightFlush => {
+                0.9 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1
+            }
+        }
+    }
+}
+
+fn choose_action_based_on_strength<'a>(
+    actions: &'a [PokerAction],
+    strength: f32,
+    game_state: &GameStateResource,
+    _config: &GameConfig,
+) -> &'a PokerAction {
+    // Simple strategy: fold if weak, check/call if medium, bet/raise if strong
+    let current_bet = game_state.current_bet;
+    let player_bet = game_state.player_bets[game_state.current_player];
+    let _to_call = current_bet - player_bet;
+
+    if strength < 0.3 {
+        // Weak hand: fold if possible, otherwise check
+        if actions.contains(&PokerAction::Fold) {
+            return actions
+                .iter()
+                .find(|a| matches!(a, PokerAction::Fold))
+                .unwrap();
+        } else if actions.contains(&PokerAction::Check) {
+            return actions
+                .iter()
+                .find(|a| matches!(a, PokerAction::Check))
+                .unwrap();
+        }
+    } else if strength < 0.6 {
+        // Medium hand: check or call
+        if actions.contains(&PokerAction::Check) {
+            return actions
+                .iter()
+                .find(|a| matches!(a, PokerAction::Check))
+                .unwrap();
+        } else if actions.contains(&PokerAction::Call) {
+            return actions
+                .iter()
+                .find(|a| matches!(a, PokerAction::Call))
+                .unwrap();
+        }
+    } else {
+        // Strong hand: bet or raise if possible
+        if actions.contains(&PokerAction::Raise) {
+            return actions
+                .iter()
+                .find(|a| matches!(a, PokerAction::Raise))
+                .unwrap();
+        } else if actions.contains(&PokerAction::Bet) {
+            return actions
+                .iter()
+                .find(|a| matches!(a, PokerAction::Bet))
+                .unwrap();
+        } else if actions.contains(&PokerAction::Check) {
+            return actions
+                .iter()
+                .find(|a| matches!(a, PokerAction::Check))
+                .unwrap();
+        }
+    }
+
+    // Fallback: first action
+    &actions[0]
+}
+
 fn perform_validated_action(game_state: &mut GameStateResource, config: &GameConfig) {
     let actions = get_valid_actions(game_state, config);
     if actions.is_empty() {
-        game_state.last_action = "No actions".to_string();
         return;
     }
 
-    let action_index = thread_rng().gen_range(0..actions.len());
-    let action = &actions[action_index];
+    // Simple AI: evaluate hand strength and choose action
+    let hand_strength = evaluate_current_hand_strength(game_state);
+    let action = choose_action_based_on_strength(&actions, hand_strength, game_state, config);
 
     match action {
         PokerAction::Check => {
@@ -966,6 +1102,7 @@ fn advance_street(game_state: &mut GameStateResource, config: &GameConfig) {
 fn update_animations(
     mut commands: Commands,
     time: Res<Time>,
+    config: Res<GameConfig>,
     mut query: Query<(Entity, &mut Transform, &mut DealAnimation)>,
 ) {
     let elapsed = time.elapsed_seconds();
@@ -975,7 +1112,7 @@ fn update_animations(
 
         if anim_elapsed > 0.0 {
             let t = (anim_elapsed / anim.duration).min(1.0);
-            let eased = 1.0 - (1.0 - t).powi(ANIMATION_EASING_POWER);
+            let eased = 1.0 - (1.0 - t).powi(config.animations.easing_power);
             transform.translation = anim.start_pos.lerp(anim.target_pos, eased);
 
             if t >= 1.0 {
@@ -1005,13 +1142,7 @@ fn handle_showdown(
 
         game_state.current_round = PokerRound::PreFlop;
         game_state.showdown_timer = -1.0;
-        start_hand(
-            &mut commands,
-            &mut game_state,
-            &config,
-            *colors,
-            time.elapsed_seconds(),
-        );
+        start_hand(&mut commands, &mut game_state, &config, &colors, &time);
     }
 }
 
@@ -1171,10 +1302,11 @@ mod game_tests {
 
     #[test]
     fn test_animation_constants() {
-        const _: () = assert!(ANIMATION_CARD_DEAL_DELAY > 0.0);
-        const _: () = assert!(ANIMATION_DEAL_DURATION > 0.0);
-        const _: () = assert!(ANIMATION_COMMUNITY_DURATION > 0.0);
-        const _: () = assert!(ANIMATION_EASING_POWER > 0);
+        let config = GameConfig::default();
+        assert!(config.animations.card_deal_delay > 0.0);
+        assert!(config.animations.deal_duration > 0.0);
+        assert!(config.animations.community_duration > 0.0);
+        assert!(config.animations.easing_power > 0);
     }
 
     #[test]
