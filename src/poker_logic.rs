@@ -136,12 +136,18 @@ impl Deck {
     }
 }
 
+/// Finds the highest straight in a set of ranks using bit manipulation.
+/// Returns the high card of the straight (e.g., for A-K-Q-J-10, returns Ace).
+/// Also handles the wheel straight (A-2-3-4-5) where 5 is the high card.
+/// Uses bit masking to efficiently check for consecutive ranks.
 fn find_straight_high(ranks: &HashSet<Rank>) -> Option<Rank> {
     if ranks.len() < 5 {
         return None;
     }
 
+    // Bit pattern for wheel straight: A,2,3,4,5 (Ace=14, Five=5)
     const WHEEL_BITS: u16 = (1 << 14) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5);
+    // Mask for 5 consecutive bits
     const STRAIGHT_MASK: u16 = 0b11111;
 
     let mut rank_bits: u16 = 0;
@@ -225,6 +231,10 @@ impl EvaluatedHand {
     }
 }
 
+/// Evaluates a poker hand and returns its ranking and relevant card values.
+/// Uses standard poker hand ranking rules. For hands with multiple cards of the same rank,
+/// the highest rank card is used for comparison. For straights and flushes, the high card
+/// determines the hand strength. Returns a default high card hand for insufficient cards.
 pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
     let non_placeholder_count = cards.iter().filter(|c| !c.is_placeholder).count();
     if non_placeholder_count < MIN_CARDS_FOR_HAND_EVALUATION {
@@ -282,7 +292,9 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
         .map(|(rank, _)| *rank)
         .collect();
 
+    // Check for straight flush: must be both a straight and a flush
     if is_flush && is_straight {
+        // Find the suit that has 5+ cards (the flush suit)
         let flush_suit = suit_counts
             .iter()
             .find(|(_, &count)| count >= 5)

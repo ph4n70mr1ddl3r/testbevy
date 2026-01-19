@@ -102,6 +102,7 @@ impl Default for ColorPalette {
     }
 }
 
+/// Returns the display name for a poker round.
 const fn get_round_name(round: PokerRound) -> &'static str {
     match round {
         PokerRound::PreFlop => "Pre-Flop",
@@ -285,41 +286,8 @@ fn start_hand(
     }
 
     spawn_table(commands, config.screen_width, config.screen_height, colors);
-
-    let player_y_top = config.screen_height * PLAYER_Y_TOP_RATIO;
-    let player_y_bottom = config.screen_height * PLAYER_Y_BOTTOM_RATIO;
-
-    spawn_player(
-        commands,
-        game_state,
-        config,
-        &colors,
-        0,
-        0.0,
-        player_y_top,
-        animation_start_time,
-    );
-    spawn_player(
-        commands,
-        game_state,
-        config,
-        &colors,
-        1,
-        0.0,
-        player_y_bottom,
-        animation_start_time,
-    );
-
-    for i in 0..5 {
-        spawn_community_card(
-            commands,
-            game_state,
-            config,
-            &colors,
-            i,
-            animation_start_time,
-        );
-    }
+    spawn_all_players(commands, game_state, config, colors, animation_start_time);
+    spawn_all_community_cards(commands, game_state, config, &colors, animation_start_time);
 
     spawn_ui(commands, game_state, config, &colors);
 }
@@ -376,7 +344,7 @@ fn spawn_player(
     let card_target_y = y_pos + config.card_target_y_offset;
 
     for j in 0..2 {
-        let card_offset = (j as f32 - 0.5) * config.card_offset_spacing;
+        let card_offset = (j as f32 - PLAYER_CARD_CENTER_OFFSET) * config.card_offset_spacing;
         let target_pos = Vec3::new(x_pos + card_offset, card_target_y, 1.0);
         let card = draw_card(game_state).unwrap_or_else(|e| {
             warn!("Error drawing card in spawn_player: {}", e);
@@ -443,7 +411,11 @@ fn spawn_player(
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(x_pos, y_pos + config.player_label_offset, 1.0),
+            transform: Transform::from_xyz(
+                x_pos,
+                y_pos + config.player_label_offset,
+                UI_TEXT_Z_POSITION,
+            ),
             ..default()
         },
         HandMarker,
@@ -460,7 +432,7 @@ fn spawn_player(
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(x_pos, y_pos + chip_y_offset, 1.0),
+            transform: Transform::from_xyz(x_pos, y_pos + chip_y_offset, UI_TEXT_Z_POSITION),
             ..default()
         },
         HandMarker,
@@ -561,7 +533,7 @@ fn spawn_community_card(
     i: usize,
     animation_start_time: f32,
 ) {
-    let x_offset = (i as f32 - 2.0) * config.card_offset_spacing;
+    let x_offset = (i as f32 - COMMUNITY_CARD_CENTER_INDEX) * config.card_offset_spacing;
     let community_card = draw_card(game_state).unwrap_or_else(|e| {
         warn!("Error drawing community card: {}", e);
         Card::default()
@@ -630,6 +602,59 @@ fn spawn_community_card(
     }
 }
 
+/// Spawns both players with their hole cards and labels.
+fn spawn_all_players(
+    commands: &mut Commands,
+    game_state: &mut GameStateResource,
+    config: &GameConfig,
+    colors: ColorPalette,
+    animation_start_time: f32,
+) {
+    let player_y_top = config.screen_height * PLAYER_Y_TOP_RATIO;
+    let player_y_bottom = config.screen_height * PLAYER_Y_BOTTOM_RATIO;
+
+    spawn_player(
+        commands,
+        game_state,
+        config,
+        &colors,
+        0,
+        0.0,
+        player_y_top,
+        animation_start_time,
+    );
+    spawn_player(
+        commands,
+        game_state,
+        config,
+        &colors,
+        1,
+        0.0,
+        player_y_bottom,
+        animation_start_time,
+    );
+}
+
+/// Spawns all 5 community cards in their initial face-down positions.
+fn spawn_all_community_cards(
+    commands: &mut Commands,
+    game_state: &mut GameStateResource,
+    config: &GameConfig,
+    colors: &ColorPalette,
+    animation_start_time: f32,
+) {
+    for i in 0..5 {
+        spawn_community_card(
+            commands,
+            game_state,
+            config,
+            colors,
+            i,
+            animation_start_time,
+        );
+    }
+}
+
 fn spawn_ui(
     commands: &mut Commands,
     game_state: &mut GameStateResource,
@@ -646,7 +671,7 @@ fn spawn_ui(
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(0.0, config.pot_display_y, 1.0),
+            transform: Transform::from_xyz(0.0, config.pot_display_y, UI_TEXT_Z_POSITION),
             ..default()
         },
         PotDisplay,
@@ -663,7 +688,11 @@ fn spawn_ui(
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(config.hand_number_x, config.hand_number_y, 1.0),
+            transform: Transform::from_xyz(
+                config.hand_number_x,
+                config.hand_number_y,
+                UI_TEXT_Z_POSITION,
+            ),
             ..default()
         },
         HandNumberDisplay,
@@ -680,7 +709,7 @@ fn spawn_ui(
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(0.0, PLAYER_CHIPS_Y, 1.0),
+            transform: Transform::from_xyz(0.0, PLAYER_CHIPS_Y, UI_TEXT_Z_POSITION),
             ..default()
         },
         PlayerChipsDisplay,
@@ -697,7 +726,7 @@ fn spawn_ui(
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(0.0, OPPONENT_CHIPS_Y, 1.0),
+            transform: Transform::from_xyz(0.0, OPPONENT_CHIPS_Y, UI_TEXT_Z_POSITION),
             ..default()
         },
         OpponentChipsDisplay,
@@ -714,7 +743,11 @@ fn spawn_ui(
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(config.round_display_x, config.round_display_y, 1.0),
+            transform: Transform::from_xyz(
+                config.round_display_x,
+                config.round_display_y,
+                UI_TEXT_Z_POSITION,
+            ),
             ..default()
         },
         RoundDisplay,
@@ -731,7 +764,7 @@ fn spawn_ui(
                     ..default()
                 },
             ),
-            transform: Transform::from_xyz(0.0, config.action_display_y, 1.0),
+            transform: Transform::from_xyz(0.0, config.action_display_y, UI_TEXT_Z_POSITION),
             ..default()
         },
         ActionDisplay,
