@@ -1,3 +1,4 @@
+use crate::constants::MIN_CARDS_FOR_HAND_EVALUATION;
 use rand::{seq::SliceRandom, thread_rng};
 use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
@@ -226,7 +227,7 @@ impl EvaluatedHand {
 
 pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
     let non_placeholder_count = cards.iter().filter(|c| !c.is_placeholder).count();
-    if non_placeholder_count < 5 {
+    if non_placeholder_count < MIN_CARDS_FOR_HAND_EVALUATION {
         return EvaluatedHand {
             hand_rank: HandRank::HighCard,
             primary_values: Vec::new(),
@@ -342,10 +343,9 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
     }
 
     if is_straight {
-        let straight_high = straight_high.unwrap();
         return EvaluatedHand {
             hand_rank: HandRank::Straight,
-            primary_values: vec![straight_high],
+            primary_values: vec![straight_high.unwrap()],
             kickers: Vec::new(),
         };
     }

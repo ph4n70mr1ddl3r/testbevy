@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use rand::prelude::{thread_rng, SliceRandom};
+use rand::prelude::{thread_rng, Rng};
 
 mod constants;
 mod poker_logic;
@@ -818,7 +818,8 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
         return;
     }
 
-    let action = actions.choose(&mut thread_rng()).unwrap();
+    let action_index = thread_rng().gen_range(0..actions.len());
+    let action = &actions[action_index];
 
     match action {
         PokerAction::Check => {

@@ -54,3 +54,6 @@ pub const CARD_TARGET_Z: f32 = 1.0;
 pub const FLOP_CARD_COUNT: usize = 3;
 pub const TURN_CARD_COUNT: usize = 4;
 pub const RIVER_CARD_COUNT: usize = 5;
+
+// Card evaluation
+pub const MIN_CARDS_FOR_HAND_EVALUATION: usize = 5;
