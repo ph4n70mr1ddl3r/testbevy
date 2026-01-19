@@ -906,10 +906,9 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
         PokerAction::Fold => {
             let winner = (game_state.current_player + 1) % 2;
             game_state.winner = Some(winner);
-            game_state.player_chips[winner] =
-                game_state.player_chips[winner].saturating_add(game_state.pot);
-            game_state.player_chips[winner] =
-                game_state.player_chips[winner].saturating_add(game_state.pot_remainder);
+            game_state.player_chips[winner] = game_state.player_chips[winner]
+                .saturating_add(game_state.pot)
+                .saturating_add(game_state.pot_remainder);
             game_state.last_winner_message = format!(
                 "P{} folds - P{} wins",
                 game_state.current_player + 1,
