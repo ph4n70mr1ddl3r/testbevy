@@ -906,9 +906,10 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
         PokerAction::Fold => {
             let winner = (game_state.current_player + 1) % 2;
             game_state.winner = Some(winner);
-            game_state.player_chips[winner] = game_state.player_chips[winner]
-                .saturating_add(game_state.pot)
-                .saturating_add(game_state.pot_remainder);
+            game_state.player_chips[winner] =
+                game_state.player_chips[winner].saturating_add(game_state.pot);
+            game_state.player_chips[winner] =
+                game_state.player_chips[winner].saturating_add(game_state.pot_remainder);
             game_state.last_winner_message = format!(
                 "P{} folds - P{} wins",
                 game_state.current_player + 1,
@@ -1057,8 +1058,9 @@ fn split_pot(game_state: &mut GameStateResource) {
     let split_amount = total_pot / 2;
     let remainder = total_pot % 2;
     game_state.player_chips[0] = game_state.player_chips[0].saturating_add(split_amount);
-    game_state.player_chips[1] = game_state.player_chips[1].saturating_add(split_amount);
-    game_state.pot_remainder = remainder;
+    game_state.player_chips[1] =
+        game_state.player_chips[1].saturating_add(split_amount + remainder);
+    game_state.pot_remainder = 0;
     game_state.last_winner_message = "Split pot".to_string();
 }
 
@@ -1356,8 +1358,8 @@ mod game_tests {
         split_pot(&mut game_state);
 
         assert_eq!(game_state.player_chips[0], 150);
-        assert_eq!(game_state.player_chips[1], 150);
-        assert_eq!(game_state.pot_remainder, 1);
+        assert_eq!(game_state.player_chips[1], 151);
+        assert_eq!(game_state.pot_remainder, 0);
     }
 
     #[test]
