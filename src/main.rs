@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 use rand::prelude::{thread_rng, SliceRandom};
 
+mod constants;
 mod poker_logic;
+use constants::*;
 use poker_logic::{determine_winner, Card, Deck, PokerRound};
-
-const PLAYER_COUNT: usize = 2;
 
 #[derive(Resource)]
 /// Configuration resource for game settings including display dimensions,
@@ -101,53 +101,6 @@ impl Default for ColorPalette {
         }
     }
 }
-
-const ANIMATION_CARD_DEAL_DELAY: f32 = 0.2;
-const ANIMATION_DEAL_DURATION: f32 = 0.5;
-const ANIMATION_COMMUNITY_DELAY_START: f32 = 0.9;
-const ANIMATION_COMMUNITY_DELAY_INCREMENT: f32 = 0.15;
-const ANIMATION_COMMUNITY_DURATION: f32 = 0.4;
-const ANIMATION_EASING_POWER: i32 = 3;
-
-const POT_FONT_SIZE: f32 = 22.0;
-const HAND_NUMBER_FONT_SIZE: f32 = 14.0;
-const PLAYER_CHIPS_FONT_SIZE: f32 = 16.0;
-const OPPONENT_CHIPS_FONT_SIZE: f32 = 14.0;
-const ROUND_FONT_SIZE: f32 = 18.0;
-const ACTION_FONT_SIZE: f32 = 16.0;
-const COMMUNITY_CARD_FONT_SIZE: f32 = 12.0;
-const PLAYER_LABEL_FONT_SIZE: f32 = 20.0;
-const CHIP_LABEL_FONT_SIZE: f32 = 18.0;
-
-const BETTING_INITIAL_DELAY: f32 = 1.0;
-const SHOWDOWN_TIMER_RESET_THRESHOLD: f32 = -0.5;
-
-const PLAYER_Y_TOP_RATIO: f32 = 0.25;
-const PLAYER_Y_BOTTOM_RATIO: f32 = -0.32;
-const TABLE_DARK_Z: f32 = 0.0;
-const TABLE_DARK_Y: f32 = -20.0;
-const TABLE_LIGHT_Z: f32 = 0.1;
-const TABLE_LIGHT_Y: f32 = -30.0;
-const CARD_TEXT_TOP_OFFSET_X: f32 = 8.0;
-const CARD_TEXT_TOP_OFFSET_Y: f32 = -12.0;
-const CARD_TEXT_BOTTOM_OFFSET_X: f32 = -8.0;
-const CARD_TEXT_BOTTOM_OFFSET_Y: f32 = 12.0;
-const PLAYER_CHIPS_Y: f32 = -260.0;
-const OPPONENT_CHIPS_Y: f32 = 60.0;
-
-const TABLE_DARK_HEIGHT_RATIO: f32 = 0.55;
-const TABLE_DARK_WIDTH_RATIO: f32 = 1.0;
-const TABLE_LIGHT_HEIGHT_RATIO: f32 = 0.48;
-const TABLE_LIGHT_WIDTH_RATIO: f32 = 0.94;
-
-const CARD_Z_POSITION: f32 = 1.0;
-const CARD_TEXT_Z_POSITION: f32 = 1.1;
-const COMMUNITY_CARD_Z_POSITION: f32 = 0.5;
-const CARD_TARGET_Z: f32 = 1.0;
-
-const FLOP_CARD_COUNT: usize = 3;
-const TURN_CARD_COUNT: usize = 4;
-const RIVER_CARD_COUNT: usize = 5;
 
 const fn get_round_name(round: PokerRound) -> &'static str {
     match round {
@@ -425,7 +378,10 @@ fn spawn_player(
     for j in 0..2 {
         let card_offset = (j as f32 - 0.5) * config.card_offset_spacing;
         let target_pos = Vec3::new(x_pos + card_offset, card_target_y, 1.0);
-        let card = draw_card(game_state);
+        let card = draw_card(game_state).unwrap_or_else(|e| {
+            warn!("Error drawing card in spawn_player: {}", e);
+            Card::default()
+        });
 
         if id == 0 {
             game_state.p1_hole[j] = card;
@@ -606,7 +562,10 @@ fn spawn_community_card(
     animation_start_time: f32,
 ) {
     let x_offset = (i as f32 - 2.0) * config.card_offset_spacing;
-    let community_card = draw_card(game_state);
+    let community_card = draw_card(game_state).unwrap_or_else(|e| {
+        warn!("Error drawing community card: {}", e);
+        Card::default()
+    });
 
     game_state.community_cards[i] = community_card;
 
@@ -926,15 +885,15 @@ fn perform_validated_action(game_state: &mut GameStateResource, config: &GameCon
     advance_street(game_state, config);
 }
 
-fn draw_card(game_state: &mut GameStateResource) -> Card {
+fn draw_card(game_state: &mut GameStateResource) -> Result<Card, &'static str> {
     if let Some(c) = game_state.deck.draw() {
-        c
+        Ok(c)
     } else {
         warn!("Deck empty - creating emergency deck");
         game_state.deck = Deck::new();
-        game_state.deck.draw().unwrap_or_else(|| {
+        game_state.deck.draw().ok_or_else(|| {
             warn!("Emergency deck creation failed - using placeholder card");
-            Card::default()
+            "Failed to draw card from emergency deck"
         })
     }
 }
@@ -1401,7 +1360,7 @@ mod game_tests {
         };
         let initial_remaining = game_state.deck.cards_remaining();
 
-        let card = draw_card(&mut game_state);
+        let card = draw_card(&mut game_state).unwrap();
 
         assert!(!card.is_placeholder);
         assert_eq!(game_state.deck.cards_remaining(), initial_remaining - 1);
@@ -1417,7 +1376,7 @@ mod game_tests {
             game_state.deck.draw();
         }
 
-        let card = draw_card(&mut game_state);
+        let card = draw_card(&mut game_state).unwrap();
 
         assert!(!card.is_placeholder);
     }
