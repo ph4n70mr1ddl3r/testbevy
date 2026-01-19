@@ -276,7 +276,7 @@ pub fn choose_action_based_on_strength<'a>(
     actions: &'a [PokerAction],
     strength: f32,
     game_state: &GameStateResource,
-    config: &GameConfig,
+    _config: &GameConfig,
 ) -> &'a PokerAction {
     // Simple strategy: fold if weak, check/call if medium, bet/raise if strong
     let current_bet = game_state.current_bet;

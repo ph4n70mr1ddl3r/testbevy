@@ -1,7 +1,6 @@
 use crate::constants::*;
 use crate::game::*;
-use crate::game::*;
-use crate::poker_logic::{Card, Deck, PokerRound};
+use crate::poker_logic::{Deck, PokerRound};
 use bevy::prelude::*;
 
 /// System that handles betting actions with AI decision making.
