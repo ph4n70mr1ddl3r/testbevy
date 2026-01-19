@@ -38,7 +38,7 @@ pub struct Card {
 
 impl Default for Card {
     fn default() -> Self {
-        Card {
+        Self {
             rank: Rank::Two,
             suit: Suit::Hearts,
             is_placeholder: true,
@@ -188,7 +188,7 @@ fn find_straight_high(ranks: &HashSet<Rank>) -> Option<Rank> {
 
 impl Default for Deck {
     fn default() -> Self {
-        Deck::new()
+        Self::new()
     }
 }
 
@@ -388,7 +388,7 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
     }
 
     if pairs.len() >= 2 {
-        let mut sorted_pairs = pairs.clone();
+        let mut sorted_pairs = pairs;
         sorted_pairs.sort_by_key(|&r| Reverse(r));
         let top_two_pairs: Vec<Rank> = sorted_pairs.iter().take(2).copied().collect();
         let kicker: Vec<Rank> = ranks
@@ -424,7 +424,7 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
     let high_cards: Vec<Rank> = ranks.iter().copied().rev().collect();
     EvaluatedHand {
         hand_rank: HandRank::HighCard,
-        primary_values: high_cards.clone(),
+        primary_values: high_cards,
         kickers: Vec::new(),
     }
 }
@@ -451,12 +451,10 @@ pub fn determine_winner(
     let score1 = eval1.score();
     let score2 = eval2.score();
 
-    if score1 > score2 {
-        0
-    } else if score2 > score1 {
-        1
-    } else {
-        -1
+    match score1.cmp(&score2) {
+        std::cmp::Ordering::Greater => 0,
+        std::cmp::Ordering::Less => 1,
+        std::cmp::Ordering::Equal => -1,
     }
 }
 

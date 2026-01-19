@@ -44,6 +44,7 @@ pub fn spawn_table(
 }
 
 /// Spawns a player's hole cards and labels.
+#[allow(clippy::cast_precision_loss)]
 pub fn spawn_player(
     commands: &mut Commands,
     game_state: &mut GameStateResource,
@@ -156,6 +157,7 @@ pub fn spawn_player(
 }
 
 /// Spawns a community card with face-down animation.
+#[allow(clippy::cast_precision_loss)]
 pub fn spawn_community_card(
     commands: &mut Commands,
     game_state: &mut GameStateResource,
@@ -428,7 +430,7 @@ pub struct CardTextParams {
 }
 
 impl CardTextParams {
-    pub fn new(
+    pub const fn new(
         card: Card,
         target_pos: Vec3,
         offset_x: f32,
@@ -437,7 +439,7 @@ impl CardTextParams {
         text_color: Color,
         font_size: f32,
     ) -> Self {
-        CardTextParams {
+        Self {
             card,
             target_pos,
             offset_x,

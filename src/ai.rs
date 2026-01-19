@@ -4,6 +4,7 @@ use crate::poker_logic::{Deck, PokerRound};
 use bevy::prelude::*;
 
 /// System that handles betting actions with AI decision making.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn handle_betting(
     config: Res<GameConfig>,
     mut game_state: ResMut<GameStateResource>,

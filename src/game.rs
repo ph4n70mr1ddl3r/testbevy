@@ -18,7 +18,7 @@ pub struct UIPositioning {
 
 impl Default for UIPositioning {
     fn default() -> Self {
-        UIPositioning {
+        Self {
             pot_display_y: 130.0,
             hand_number_x: -160.0,
             hand_number_y: 360.0,
@@ -43,7 +43,7 @@ pub struct AnimationConfig {
 
 impl Default for AnimationConfig {
     fn default() -> Self {
-        AnimationConfig {
+        Self {
             card_deal_delay: 0.2,
             deal_duration: 0.5,
             community_delay_start: 0.9,
@@ -78,7 +78,7 @@ pub struct GameConfig {
 
 impl Default for GameConfig {
     fn default() -> Self {
-        GameConfig {
+        Self {
             card_width: 55.0,
             card_height: 77.0,
             card_offset_spacing: 65.0,
@@ -120,7 +120,7 @@ pub struct ColorPalette {
 
 impl Default for ColorPalette {
     fn default() -> Self {
-        ColorPalette {
+        Self {
             card_text_red: Color::srgb(0.85, 0.0, 0.0),
             card_text_black: Color::srgb(0.1, 0.1, 0.1),
             table_green_dark: Color::srgb(0.12, 0.45, 0.18),
@@ -239,7 +239,7 @@ pub fn evaluate_current_hand_strength(game_state: &GameStateResource) -> f32 {
         game_state
             .community_cards
             .iter()
-            .cloned()
+            .copied()
             .filter(|card| !card.is_placeholder),
     );
 
@@ -248,23 +248,29 @@ pub fn evaluate_current_hand_strength(game_state: &GameStateResource) -> f32 {
         let ranks: Vec<u8> = cards.iter().map(|c| c.rank as u8).collect();
         let mut score = 0.0;
         for &rank in &ranks {
-            score += rank as f32 / 13.0; // Normalize to 0-1
+            score += f32::from(rank) / 13.0; // Normalize to 0-1
         }
         score / 2.0 // Average
     } else {
         // Postflop: evaluate hand
         let evaluated = evaluate_hand(&cards);
         match evaluated.hand_rank {
-            HandRank::HighCard => 0.1 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1,
-            HandRank::Pair => 0.2 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1,
-            HandRank::TwoPair => 0.3 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1,
-            HandRank::ThreeOfAKind => 0.4 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1,
-            HandRank::Straight => 0.5 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1,
-            HandRank::Flush => 0.6 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1,
-            HandRank::FullHouse => 0.7 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1,
-            HandRank::FourOfAKind => 0.8 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1,
+            HandRank::HighCard => 0.1 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1,
+            HandRank::Pair => 0.2 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1,
+            HandRank::TwoPair => 0.3 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1,
+            HandRank::ThreeOfAKind => {
+                0.4 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1
+            }
+            HandRank::Straight => 0.5 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1,
+            HandRank::Flush => 0.6 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1,
+            HandRank::FullHouse => {
+                0.7 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1
+            }
+            HandRank::FourOfAKind => {
+                0.8 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1
+            }
             HandRank::StraightFlush => {
-                0.9 + (evaluated.primary_values[0] as u8 as f32 / 13.0) * 0.1
+                0.9 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1
             }
         }
     }
@@ -272,6 +278,7 @@ pub fn evaluate_current_hand_strength(game_state: &GameStateResource) -> f32 {
 
 /// Chooses an action based on hand strength, position, and pot odds.
 /// Uses a more sophisticated strategy considering multiple factors.
+#[allow(clippy::cast_precision_loss)]
 pub fn choose_action_based_on_strength<'a>(
     actions: &'a [PokerAction],
     strength: f32,
@@ -471,46 +478,37 @@ pub fn perform_validated_action(game_state: &mut GameStateResource, config: &Gam
     let hand_strength = evaluate_current_hand_strength(game_state);
     let action = choose_action_based_on_strength(&actions, hand_strength, game_state, config);
 
+    let player_idx = game_state.current_player;
     match action {
         PokerAction::Check => {
-            let player_idx = game_state.current_player;
             game_state.last_action = format!("P{}: Check", player_idx + 1);
-            game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
         }
         PokerAction::Bet => {
             let bet_amount = config.bet_amount;
-            let player_idx = game_state.current_player;
             if game_state.player_chips[player_idx] >= bet_amount {
                 place_bet(game_state, bet_amount, true, bet_amount);
                 game_state.last_action = format!("P{}: Bet ${}", player_idx + 1, bet_amount);
-                game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
             } else {
                 game_state.last_action = format!("P{}: All-in", player_idx + 1);
-                game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
             }
         }
         PokerAction::Call => {
-            let player_idx = game_state.current_player;
             let call_amount =
                 game_state.current_bet - game_state.player_bets[game_state.current_player];
             if call_amount > 0 && game_state.player_chips[player_idx] >= call_amount {
                 place_bet(game_state, call_amount, false, 0);
                 game_state.last_action = format!("P{}: Call", player_idx + 1);
-                game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
             }
         }
         PokerAction::Raise => {
-            let player_idx = game_state.current_player;
             let raise_amount = game_state.current_bet + config.raise_amount;
             let actual_raise = raise_amount - game_state.player_bets[game_state.current_player];
             if game_state.player_chips[player_idx] >= actual_raise {
                 place_bet(game_state, actual_raise, true, raise_amount);
                 game_state.last_action =
                     format!("P{}: Raise ${}", player_idx + 1, config.raise_amount);
-                game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
             } else {
                 game_state.last_action = format!("P{}: All-in", player_idx + 1);
-                game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
             }
         }
         PokerAction::Fold => {
@@ -532,6 +530,9 @@ pub fn perform_validated_action(game_state: &mut GameStateResource, config: &Gam
             return;
         }
     }
+
+    // Advance to next player (except for fold which returns early)
+    game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
 
     advance_street(game_state, config);
 }
