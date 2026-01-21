@@ -13,7 +13,7 @@ pub fn handle_betting(
     let action_delay = config.action_delay;
     let elapsed = time.elapsed_seconds() - game_state.animation_start_time;
 
-    let current_tick = ((elapsed - BETTING_INITIAL_DELAY) / action_delay) as u32;
+    let current_tick = ((elapsed - BETTING_INITIAL_DELAY).max(0.0) / action_delay) as u32;
     if elapsed > BETTING_INITIAL_DELAY && current_tick > game_state.action_tick {
         perform_validated_action(&mut game_state, &config);
         game_state.action_tick = current_tick;

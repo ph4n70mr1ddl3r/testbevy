@@ -417,11 +417,18 @@ pub fn place_bet(
     new_current_bet: u32,
 ) {
     let player_idx = game_state.current_player;
-    if player_idx >= game_state.player_chips.len() || player_idx >= game_state.player_bets.len() {
+    if player_idx >= PLAYER_COUNT {
         error!("Invalid player index: {}", player_idx);
         return;
     }
-
+    let Some(_player_chips) = game_state.player_chips.get_mut(player_idx) else {
+        error!("Invalid player chips index: {}", player_idx);
+        return;
+    };
+    let Some(_player_bets) = game_state.player_bets.get_mut(player_idx) else {
+        error!("Invalid player bets index: {}", player_idx);
+        return;
+    };
     let available_chips = game_state.player_chips[player_idx];
     let actual_amount = amount.min(available_chips);
     game_state.player_chips[player_idx] =
@@ -543,12 +550,13 @@ pub fn draw_card(game_state: &mut GameStateResource) -> Result<Card, &'static st
     if let Some(c) = game_state.deck.draw() {
         Ok(c)
     } else {
-        warn!("Deck empty - creating emergency deck");
-        game_state.deck = Deck::new();
-        game_state.deck.draw().ok_or_else(|| {
-            error!("Emergency deck creation failed - this should never happen");
-            "Failed to draw card from emergency deck"
-        })
+        warn!("Deck empty - reshuffling discarded cards");
+        game_state.deck.reshuffle_discarded();
+        if game_state.deck.is_empty() {
+            error!("No cards available to reshuffle");
+            return Err("No cards available to draw after reshuffle");
+        }
+        game_state.deck.draw().ok_or("Failed to draw after reshuffle")        })
     }
 }
 
