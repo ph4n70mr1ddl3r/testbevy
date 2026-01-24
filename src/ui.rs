@@ -60,13 +60,7 @@ pub fn spawn_player(
     for j in 0..2 {
         let card_offset = (j as f32 - PLAYER_CARD_CENTER_OFFSET) * config.card_offset_spacing;
         let target_pos = Vec3::new(x_pos + card_offset, card_target_y, 1.0);
-        let card = match draw_card(game_state) {
-            Ok(card) => card,
-            Err(e) => {
-                warn!("Error drawing card in spawn_player: {}", e);
-                Card::default()
-            }
-        };
+        let card = draw_card(game_state).expect("Failed to draw card from deck");
 
         if id == 0 {
             game_state.p1_hole[j] = card;
@@ -167,13 +161,7 @@ pub fn spawn_community_card(
     animation_start_time: f32,
 ) {
     let x_offset = (i as f32 - COMMUNITY_CARD_CENTER_INDEX) * config.card_offset_spacing;
-    let community_card = match draw_card(game_state) {
-        Ok(card) => card,
-        Err(e) => {
-            warn!("Error drawing community card: {}", e);
-            Card::default()
-        }
-    };
+    let community_card = draw_card(game_state).expect("Failed to draw community card from deck");
 
     game_state.community_cards[i] = community_card;
 

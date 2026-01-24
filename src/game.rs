@@ -186,6 +186,7 @@ pub struct GameStateResource {
     pub p1_hole: [Card; 2],
     pub p2_hole: [Card; 2],
     pub community_cards: [Card; 5],
+    pub needs_hand_restart: bool,
 }
 
 #[derive(Component)]
@@ -422,14 +423,7 @@ pub fn place_bet(
         error!("Invalid player index: {}", player_idx);
         return;
     }
-    let Some(_player_chips) = game_state.player_chips.get_mut(player_idx) else {
-        error!("Invalid player chips index: {}", player_idx);
-        return;
-    };
-    let Some(_player_bets) = game_state.player_bets.get_mut(player_idx) else {
-        error!("Invalid player bets index: {}", player_idx);
-        return;
-    };
+
     let available_chips = game_state.player_chips[player_idx];
     let actual_amount = amount.min(available_chips);
     game_state.player_chips[player_idx] =
@@ -482,7 +476,6 @@ pub fn perform_validated_action(game_state: &mut GameStateResource, config: &Gam
         return;
     }
 
-    // Simple AI: evaluate hand strength and choose action
     let hand_strength = evaluate_current_hand_strength(game_state);
     let action = choose_action_based_on_strength(&actions, hand_strength, game_state, config);
 
@@ -496,8 +489,12 @@ pub fn perform_validated_action(game_state: &mut GameStateResource, config: &Gam
             if game_state.player_chips[player_idx] >= bet_amount {
                 place_bet(game_state, bet_amount, true, bet_amount);
                 game_state.last_action = format!("P{}: Bet ${}", player_idx + 1, bet_amount);
-            } else {
+            } else if game_state.player_chips[player_idx] > 0 {
+                let all_in_amount = game_state.player_chips[player_idx];
+                place_bet(game_state, all_in_amount, true, all_in_amount);
                 game_state.last_action = format!("P{}: All-in", player_idx + 1);
+            } else {
+                game_state.last_action = format!("P{}: Check (no chips)", player_idx + 1);
             }
         }
         PokerAction::Call => {
@@ -506,6 +503,10 @@ pub fn perform_validated_action(game_state: &mut GameStateResource, config: &Gam
             if call_amount > 0 && game_state.player_chips[player_idx] >= call_amount {
                 place_bet(game_state, call_amount, false, 0);
                 game_state.last_action = format!("P{}: Call", player_idx + 1);
+            } else if call_amount > 0 && game_state.player_chips[player_idx] > 0 {
+                let all_in_amount = game_state.player_chips[player_idx];
+                place_bet(game_state, all_in_amount, false, 0);
+                game_state.last_action = format!("P{}: Call all-in", player_idx + 1);
             }
         }
         PokerAction::Raise => {
@@ -515,8 +516,13 @@ pub fn perform_validated_action(game_state: &mut GameStateResource, config: &Gam
                 place_bet(game_state, actual_raise, true, raise_amount);
                 game_state.last_action =
                     format!("P{}: Raise ${}", player_idx + 1, config.raise_amount);
-            } else {
+            } else if game_state.player_chips[player_idx] > 0 {
+                let all_in_amount = game_state.player_chips[player_idx];
+                let player_bet = game_state.player_bets[game_state.current_player];
+                place_bet(game_state, all_in_amount, true, player_bet + all_in_amount);
                 game_state.last_action = format!("P{}: All-in", player_idx + 1);
+            } else {
+                game_state.last_action = format!("P{}: Check (no chips)", player_idx + 1);
             }
         }
         PokerAction::Fold => {
@@ -539,9 +545,7 @@ pub fn perform_validated_action(game_state: &mut GameStateResource, config: &Gam
         }
     }
 
-    // Advance to next player (except for fold which returns early)
     game_state.current_player = (game_state.current_player + 1) % PLAYER_COUNT;
-
     advance_street(game_state, config);
 }
 

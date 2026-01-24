@@ -28,13 +28,7 @@ pub fn check_game_flow(mut game_state: ResMut<GameStateResource>, time: Res<Time
 }
 
 /// System that handles showdown resolution and hand cleanup.
-pub fn handle_showdown(
-    mut commands: Commands,
-    mut game_state: ResMut<GameStateResource>,
-    config: Res<GameConfig>,
-    colors: Res<ColorPalette>,
-    time: Res<Time>,
-) {
+pub fn handle_showdown(mut game_state: ResMut<GameStateResource>) {
     if game_state.current_round == PokerRound::Showdown && game_state.showdown_timer <= 0.0 {
         if game_state.winner.is_none() {
             process_showdown_result(&mut game_state);
@@ -42,7 +36,7 @@ pub fn handle_showdown(
 
         game_state.current_round = PokerRound::PreFlop;
         game_state.showdown_timer = -1.0;
-        start_hand(&mut commands, &mut game_state, &config, &colors, &time);
+        game_state.needs_hand_restart = true;
     }
 }
 
@@ -105,13 +99,14 @@ pub fn start_hand_system(
     colors: Res<ColorPalette>,
     time: Res<Time>,
 ) {
-    if game_state.hand_number == 0 || game_state.showdown_timer < SHOWDOWN_TIMER_RESET_THRESHOLD {
+    if game_state.needs_hand_restart {
         game_state.needs_cleanup = true;
         game_state.animation_start_time = time.elapsed_seconds();
         game_state.showdown_timer = 0.0;
         game_state.action_tick = 0;
         game_state.winner = None;
         game_state.last_winner_message = "".to_string();
+        game_state.needs_hand_restart = false;
         start_hand(&mut commands, &mut game_state, &config, &colors, &time);
     }
 }
@@ -129,4 +124,5 @@ pub fn setup_game(
     game_state.current_bet = 0;
     game_state.winner = None;
     game_state.dealer_position = 0;
+    game_state.needs_hand_restart = true;
 }

@@ -16,7 +16,6 @@ pub const CHIP_LABEL_FONT_SIZE: f32 = 18.0;
 
 // Betting delays
 pub const BETTING_INITIAL_DELAY: f32 = 1.0;
-pub const SHOWDOWN_TIMER_RESET_THRESHOLD: f32 = -0.5;
 
 // UI ratios and positions
 pub const PLAYER_Y_TOP_RATIO: f32 = 0.25;
