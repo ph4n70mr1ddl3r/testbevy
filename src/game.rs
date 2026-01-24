@@ -289,7 +289,6 @@ pub fn choose_action_based_on_strength<'a>(
     let player_bet = game_state.player_bets[game_state.current_player];
     let to_call = current_bet.saturating_sub(player_bet);
     let pot_size = game_state.pot + game_state.pot_remainder;
-    let _player_chips = game_state.player_chips[game_state.current_player];
 
     // Calculate pot odds
     let pot_odds = if to_call > 0 {
@@ -300,7 +299,7 @@ pub fn choose_action_based_on_strength<'a>(
 
     // Position advantage (dealer acts last)
     let is_dealer = game_state.current_player == game_state.dealer_position;
-    let position_bonus = if is_dealer { 0.1 } else { 0.0 };
+    let position_bonus = if is_dealer { AI_POSITION_BONUS } else { 0.0 };
 
     // Adjust strength based on position and pot odds
     let adjusted_strength = (strength + position_bonus).min(1.0);
@@ -309,9 +308,9 @@ pub fn choose_action_based_on_strength<'a>(
     let preflop_adjustment = if game_state.current_round == PokerRound::PreFlop {
         // Be more aggressive preflop with position
         if is_dealer {
-            0.05
+            AI_PREFLOP_DEALER_BONUS
         } else {
-            -0.05
+            AI_PREFLOP_NON_DEALER_PENALTY
         }
     } else {
         0.0
@@ -319,7 +318,9 @@ pub fn choose_action_based_on_strength<'a>(
     let final_strength = (adjusted_strength + preflop_adjustment).clamp(0.0, 1.0);
 
     // Decision thresholds based on strength and pot odds
-    if final_strength < 0.25 || (final_strength < 0.4 && pot_odds > 0.3) {
+    if final_strength < AI_STRENGTH_FOLD_THRESHOLD
+        || (final_strength < 0.4 && pot_odds > AI_POT_ODDS_BAD_THRESHOLD)
+    {
         // Weak hand or bad pot odds: fold if possible
         if actions.contains(&PokerAction::Fold) && to_call > 0 {
             return actions
@@ -329,7 +330,7 @@ pub fn choose_action_based_on_strength<'a>(
         }
     }
 
-    if final_strength >= 0.7 {
+    if final_strength >= AI_STRENGTH_RAISE_THRESHOLD {
         // Very strong hand: raise or bet
         if actions.contains(&PokerAction::Raise) {
             return actions
@@ -342,14 +343,14 @@ pub fn choose_action_based_on_strength<'a>(
                 .find(|a| matches!(a, PokerAction::Bet))
                 .unwrap();
         }
-    } else if final_strength >= 0.5 {
+    } else if final_strength >= AI_STRENGTH_CALL_THRESHOLD {
         // Medium-strong hand: call or check
         if actions.contains(&PokerAction::Check) {
             return actions
                 .iter()
                 .find(|a| matches!(a, PokerAction::Check))
                 .unwrap();
-        } else if actions.contains(&PokerAction::Call) && pot_odds < 0.25 {
+        } else if actions.contains(&PokerAction::Call) && pot_odds < AI_POT_ODDS_CALL_THRESHOLD {
             return actions
                 .iter()
                 .find(|a| matches!(a, PokerAction::Call))
@@ -362,7 +363,7 @@ pub fn choose_action_based_on_strength<'a>(
                 .iter()
                 .find(|a| matches!(a, PokerAction::Check))
                 .unwrap();
-        } else if actions.contains(&PokerAction::Call) && pot_odds < 0.2 {
+        } else if actions.contains(&PokerAction::Call) && pot_odds < AI_POT_ODDS_GOOD_THRESHOLD {
             return actions
                 .iter()
                 .find(|a| matches!(a, PokerAction::Call))
@@ -550,13 +551,9 @@ pub fn draw_card(game_state: &mut GameStateResource) -> Result<Card, &'static st
     if let Some(c) = game_state.deck.draw() {
         Ok(c)
     } else {
-        warn!("Deck empty - reshuffling discarded cards");
-        game_state.deck.reshuffle_discarded();
-        if game_state.deck.is_empty() {
-            error!("No cards available to reshuffle");
-            return Err("No cards available to draw after reshuffle");
-        }
-        game_state.deck.draw().ok_or("Failed to draw after reshuffle")        })
+        warn!("Deck empty - creating new deck");
+        game_state.deck = Deck::new();
+        game_state.deck.draw().ok_or("Failed to draw from new deck")
     }
 }
 

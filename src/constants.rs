@@ -38,21 +38,32 @@ pub const TABLE_DARK_WIDTH_RATIO: f32 = 1.0;
 pub const TABLE_LIGHT_HEIGHT_RATIO: f32 = 0.48;
 pub const TABLE_LIGHT_WIDTH_RATIO: f32 = 0.94;
 
-// Z positions
+// Z positions for rendering layers
 pub const CARD_Z_POSITION: f32 = 1.0;
 pub const CARD_TEXT_Z_POSITION: f32 = 1.1;
 pub const COMMUNITY_CARD_Z_POSITION: f32 = 0.5;
 pub const CARD_TARGET_Z: f32 = 1.0;
 pub const UI_TEXT_Z_POSITION: f32 = 1.0;
 
-// Card counts
+// Card counts revealed per round
 pub const FLOP_CARD_COUNT: usize = 3;
 pub const TURN_CARD_COUNT: usize = 4;
 pub const RIVER_CARD_COUNT: usize = 5;
 
-// Card positioning
+// Card positioning offsets
 pub const PLAYER_CARD_CENTER_OFFSET: f32 = 0.5;
 pub const COMMUNITY_CARD_CENTER_INDEX: f32 = 2.0;
 
 // Card evaluation
 pub const MIN_CARDS_FOR_HAND_EVALUATION: usize = 5;
+
+// AI decision thresholds
+pub const AI_STRENGTH_FOLD_THRESHOLD: f32 = 0.25;
+pub const AI_STRENGTH_CALL_THRESHOLD: f32 = 0.5;
+pub const AI_STRENGTH_RAISE_THRESHOLD: f32 = 0.7;
+pub const AI_POT_ODDS_BAD_THRESHOLD: f32 = 0.3;
+pub const AI_POT_ODDS_CALL_THRESHOLD: f32 = 0.25;
+pub const AI_POT_ODDS_GOOD_THRESHOLD: f32 = 0.2;
+pub const AI_POSITION_BONUS: f32 = 0.1;
+pub const AI_PREFLOP_DEALER_BONUS: f32 = 0.05;
+pub const AI_PREFLOP_NON_DEALER_PENALTY: f32 = -0.05;

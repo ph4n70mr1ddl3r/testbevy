@@ -131,8 +131,15 @@ impl Deck {
         self.cards.pop()
     }
 
+    /// Returns the number of cards remaining in the deck.
     pub fn cards_remaining(&self) -> usize {
         self.cards.len()
+    }
+
+    #[allow(dead_code)]
+    /// Checks if the deck has no cards remaining.
+    pub fn is_empty(&self) -> bool {
+        self.cards.is_empty()
     }
 }
 
