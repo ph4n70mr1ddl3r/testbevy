@@ -135,12 +135,6 @@ impl Deck {
     pub fn cards_remaining(&self) -> usize {
         self.cards.len()
     }
-
-    #[allow(dead_code)]
-    /// Checks if the deck has no cards remaining.
-    pub fn is_empty(&self) -> bool {
-        self.cards.is_empty()
-    }
 }
 
 /// Finds the highest straight in a set of ranks using bit manipulation.
