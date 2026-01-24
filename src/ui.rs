@@ -524,14 +524,12 @@ pub fn update_ui(
         text.sections[0].value = get_round_name(game_state.current_round).to_string();
     }
 
-    let action_text = if game_state.winner.is_some() {
-        game_state.last_winner_message.clone()
-    } else {
-        game_state.last_action.clone()
-    };
-
-    if let Some(mut text) = action_query.iter_mut().next() {
-        text.sections[0].value = action_text;
+    for mut text in action_query.iter_mut() {
+        text.sections[0].value = if game_state.winner.is_some() {
+            game_state.last_winner_message.clone()
+        } else {
+            game_state.last_action.clone()
+        };
     }
 }
 

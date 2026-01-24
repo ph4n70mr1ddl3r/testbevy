@@ -224,6 +224,21 @@ pub enum PokerAction {
     Fold,
 }
 
+fn evaluate_hand_rank_score(hand_rank: HandRank, primary_value: u8) -> f32 {
+    let base_score = match hand_rank {
+        HandRank::HighCard => 0.1,
+        HandRank::Pair => 0.2,
+        HandRank::TwoPair => 0.3,
+        HandRank::ThreeOfAKind => 0.4,
+        HandRank::Straight => 0.5,
+        HandRank::Flush => 0.6,
+        HandRank::FullHouse => 0.7,
+        HandRank::FourOfAKind => 0.8,
+        HandRank::StraightFlush => 0.9,
+    };
+    base_score + (f32::from(primary_value) / 13.0) * 0.1
+}
+
 /// Evaluates hand strength as a value between 0.0 and 1.0
 /// where 1.0 is the strongest possible hand (royal flush).
 pub fn evaluate_current_hand_strength(game_state: &GameStateResource) -> f32 {
@@ -255,25 +270,7 @@ pub fn evaluate_current_hand_strength(game_state: &GameStateResource) -> f32 {
     } else {
         // Postflop: evaluate hand
         let evaluated = evaluate_hand(&cards);
-        match evaluated.hand_rank {
-            HandRank::HighCard => 0.1 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1,
-            HandRank::Pair => 0.2 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1,
-            HandRank::TwoPair => 0.3 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1,
-            HandRank::ThreeOfAKind => {
-                0.4 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1
-            }
-            HandRank::Straight => 0.5 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1,
-            HandRank::Flush => 0.6 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1,
-            HandRank::FullHouse => {
-                0.7 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1
-            }
-            HandRank::FourOfAKind => {
-                0.8 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1
-            }
-            HandRank::StraightFlush => {
-                0.9 + (f32::from(evaluated.primary_values[0] as u8) / 13.0) * 0.1
-            }
-        }
+        evaluate_hand_rank_score(evaluated.hand_rank, evaluated.primary_values[0] as u8)
     }
 }
 
@@ -391,7 +388,10 @@ pub fn get_valid_actions(game_state: &GameStateResource, config: &GameConfig) ->
     let player_bet = game_state.player_bets[player_idx];
     let current_bet = game_state.current_bet;
 
-    actions.push(PokerAction::Check);
+    // Check is only available when no bet has been made this round
+    if current_bet == 0 {
+        actions.push(PokerAction::Check);
+    }
 
     if current_bet > 0 {
         let call_amount = current_bet - player_bet;
