@@ -2,7 +2,7 @@ use crate::constants::MIN_CARDS_FOR_HAND_EVALUATION;
 use rand::{seq::SliceRandom, thread_rng};
 use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
-use std::fmt::{self, Display};
+use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Suit {

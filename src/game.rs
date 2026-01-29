@@ -1,5 +1,5 @@
 use crate::constants::*;
-use crate::poker_logic::{determine_winner, evaluate_hand, Card, Deck, HandRank, PokerRound};
+use crate::poker_logic::{determine_winner, Card, Deck, HandRank, PokerRound};
 use bevy::prelude::*;
 
 /// Configuration resource for game settings including display dimensions,
