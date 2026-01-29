@@ -3,10 +3,6 @@ use crate::game::*;
 use crate::poker_logic::{Card, PokerRound};
 use bevy::prelude::*;
 
-// Re-export CARD_TEXT_Z_POSITION for potential future use in card text positioning
-#[allow(unused_imports)]
-pub use crate::constants::CARD_TEXT_Z_POSITION;
-
 /// Spawns the table background with two layers of green felt.
 pub fn spawn_table(
     commands: &mut Commands,

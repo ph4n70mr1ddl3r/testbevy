@@ -330,7 +330,7 @@ pub fn choose_action_based_on_strength<'a>(
             return actions
                 .iter()
                 .find(|a| matches!(a, PokerAction::Fold))
-                .unwrap();
+                .expect("Fold action should exist in actions list");
         }
     }
 
@@ -340,12 +340,12 @@ pub fn choose_action_based_on_strength<'a>(
             return actions
                 .iter()
                 .find(|a| matches!(a, PokerAction::Raise))
-                .unwrap();
+                .expect("Raise action should exist in actions list");
         } else if actions.contains(&PokerAction::Bet) {
             return actions
                 .iter()
                 .find(|a| matches!(a, PokerAction::Bet))
-                .unwrap();
+                .expect("Bet action should exist in actions list");
         }
     } else if final_strength >= AI_STRENGTH_CALL_THRESHOLD {
         // Medium-strong hand: call or check
@@ -353,12 +353,12 @@ pub fn choose_action_based_on_strength<'a>(
             return actions
                 .iter()
                 .find(|a| matches!(a, PokerAction::Check))
-                .unwrap();
+                .expect("Check action should exist in actions list");
         } else if actions.contains(&PokerAction::Call) && pot_odds < AI_POT_ODDS_CALL_THRESHOLD {
             return actions
                 .iter()
                 .find(|a| matches!(a, PokerAction::Call))
-                .unwrap();
+                .expect("Call action should exist in actions list");
         }
     } else if final_strength >= 0.3 {
         // Medium hand: check or call with good pot odds
@@ -366,12 +366,12 @@ pub fn choose_action_based_on_strength<'a>(
             return actions
                 .iter()
                 .find(|a| matches!(a, PokerAction::Check))
-                .unwrap();
+                .expect("Check action should exist in actions list");
         } else if actions.contains(&PokerAction::Call) && pot_odds < AI_POT_ODDS_GOOD_THRESHOLD {
             return actions
                 .iter()
                 .find(|a| matches!(a, PokerAction::Call))
-                .unwrap();
+                .expect("Call action should exist in actions list");
         }
     }
 
@@ -380,7 +380,7 @@ pub fn choose_action_based_on_strength<'a>(
         actions
             .iter()
             .find(|a| matches!(a, PokerAction::Check))
-            .unwrap()
+            .expect("Check action should exist in actions list")
     } else {
         &actions[0]
     }
@@ -574,12 +574,17 @@ pub fn distribute_pot(game_state: &mut GameStateResource, winner: usize) {
 }
 
 /// Splits the pot between both players in case of a tie and clears the pot.
+/// In case of an odd pot, the extra chip goes to the dealer (following standard poker rules).
 pub fn split_pot(game_state: &mut GameStateResource) {
     let total_pot = game_state.pot + game_state.pot_remainder;
     let split_amount = total_pot / 2;
     let remainder = total_pot % 2;
-    game_state.player_chips[0] += split_amount;
-    game_state.player_chips[1] += split_amount + remainder;
+    let dealer = game_state.dealer_position;
+    let other_player = (dealer + 1) % PLAYER_COUNT;
+
+    // Dealer gets the remainder chip (if any) per standard poker rules
+    game_state.player_chips[dealer] += split_amount + remainder;
+    game_state.player_chips[other_player] += split_amount;
     game_state.pot = 0;
     game_state.pot_remainder = 0;
     game_state.last_winner_message = "Split pot".to_string();

@@ -137,6 +137,24 @@ impl Deck {
     }
 }
 
+// Bit pattern for wheel straight: A,2,3,4,5 (Ace=14, Five=5)
+const WHEEL_BITS: u16 = (1 << 14) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5);
+// Mask for 5 consecutive bits
+const STRAIGHT_MASK: u16 = 0b11111;
+
+const STRAIGHT_HIGH_MAP: [(u16, Rank); 10] = [
+    (STRAIGHT_MASK << 10, Rank::Ace),
+    (STRAIGHT_MASK << 9, Rank::King),
+    (STRAIGHT_MASK << 8, Rank::Queen),
+    (STRAIGHT_MASK << 7, Rank::Jack),
+    (STRAIGHT_MASK << 6, Rank::Ten),
+    (STRAIGHT_MASK << 5, Rank::Nine),
+    (STRAIGHT_MASK << 4, Rank::Eight),
+    (STRAIGHT_MASK << 3, Rank::Seven),
+    (STRAIGHT_MASK << 2, Rank::Six),
+    (STRAIGHT_MASK << 1, Rank::Five),
+];
+
 /// Finds the highest straight in a set of ranks using bit manipulation.
 /// Returns the high card of the straight (e.g., for A-K-Q-J-10, returns Ace).
 /// Also handles the wheel straight (A-2-3-4-5) where 5 is the high card.
@@ -145,11 +163,6 @@ fn find_straight_high(ranks: &HashSet<Rank>) -> Option<Rank> {
     if ranks.len() < 5 {
         return None;
     }
-
-    // Bit pattern for wheel straight: A,2,3,4,5 (Ace=14, Five=5)
-    const WHEEL_BITS: u16 = (1 << 14) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5);
-    // Mask for 5 consecutive bits
-    const STRAIGHT_MASK: u16 = 0b11111;
 
     let mut rank_bits: u16 = 0;
     for &rank in ranks {
@@ -160,19 +173,6 @@ fn find_straight_high(ranks: &HashSet<Rank>) -> Option<Rank> {
     }
 
     let has_wheel = (rank_bits & WHEEL_BITS) == WHEEL_BITS;
-
-    const STRAIGHT_HIGH_MAP: [(u16, Rank); 10] = [
-        (STRAIGHT_MASK << 10, Rank::Ace),
-        (STRAIGHT_MASK << 9, Rank::King),
-        (STRAIGHT_MASK << 8, Rank::Queen),
-        (STRAIGHT_MASK << 7, Rank::Jack),
-        (STRAIGHT_MASK << 6, Rank::Ten),
-        (STRAIGHT_MASK << 5, Rank::Nine),
-        (STRAIGHT_MASK << 4, Rank::Eight),
-        (STRAIGHT_MASK << 3, Rank::Seven),
-        (STRAIGHT_MASK << 2, Rank::Six),
-        (STRAIGHT_MASK << 1, Rank::Five),
-    ];
 
     for (mask, rank) in STRAIGHT_HIGH_MAP.iter() {
         if (rank_bits & mask) == *mask {
