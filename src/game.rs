@@ -388,7 +388,6 @@ pub fn choose_action_based_on_strength<'a>(
 
 /// Returns all valid actions for the current player given the game state.
 pub fn get_valid_actions(game_state: &GameStateResource, config: &GameConfig) -> Vec<PokerAction> {
-    #![allow(clippy::unused_self)]
     let mut actions = Vec::new();
     let player_idx = game_state.current_player;
     let player_chips = game_state.player_chips[player_idx];
