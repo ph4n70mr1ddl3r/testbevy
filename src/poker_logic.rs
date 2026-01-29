@@ -302,19 +302,20 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
     let mut rank_counts_vec: Vec<(Rank, usize)> = rank_counts.into_iter().collect();
     rank_counts_vec.sort_by_key(|(rank, count)| (*count, Reverse(*rank)));
 
-    let four_of_kind = rank_counts_vec
-        .iter()
-        .find(|(_, count)| *count == 4)
-        .map(|(rank, _)| *rank);
-    let three_of_kind = rank_counts_vec
-        .iter()
-        .find(|(_, count)| *count == 3)
-        .map(|(rank, _)| *rank);
-    let pairs: Vec<Rank> = rank_counts_vec
-        .iter()
-        .filter(|(_, count)| *count == 2)
-        .map(|(rank, _)| *rank)
-        .collect();
+    let (four_of_kind, three_of_kind, pairs) = {
+        let mut four = None;
+        let mut three = None;
+        let mut pairs = Vec::new();
+        for &(rank, count) in &rank_counts_vec {
+            match count {
+                4 => four = Some(rank),
+                3 => three = Some(rank),
+                2 => pairs.push(rank),
+                _ => {}
+            }
+        }
+        (four, three, pairs)
+    };
 
     // Check for straight flush: must be both a straight and a flush
     if is_flush && is_straight {

@@ -1,19 +1,7 @@
 use crate::constants::*;
 use crate::game::*;
-use crate::poker_logic::{Card, Deck, PokerRound};
+use crate::poker_logic::{Card, PokerRound};
 use bevy::prelude::*;
-
-/// Helper function to draw a card with automatic deck replenishment.
-/// Returns the drawn card or an error if drawing fails even after creating a new deck.
-fn draw_card_with_fallback(game_state: &mut GameStateResource) -> Result<Card, &'static str> {
-    if let Some(card) = game_state.deck.draw() {
-        Ok(card)
-    } else {
-        warn!("Deck empty - creating new deck");
-        game_state.deck = Deck::new();
-        game_state.deck.draw().ok_or("Failed to draw from new deck")
-    }
-}
 
 /// Spawns the table background with two layers of green felt.
 pub fn spawn_table(
@@ -72,7 +60,7 @@ pub fn spawn_player(
     for j in 0..2 {
         let card_offset = (j as f32 - PLAYER_CARD_CENTER_OFFSET) * config.card_offset_spacing;
         let target_pos = Vec3::new(x_pos + card_offset, card_target_y, 1.0);
-        let card = match draw_card_with_fallback(game_state) {
+        let card = match draw_card(game_state) {
             Ok(c) => c,
             Err(e) => {
                 error!("Critical: Failed to draw card: {}", e);
@@ -175,7 +163,7 @@ pub fn spawn_community_card(
     animation_start_time: f32,
 ) {
     let x_offset = (i as f32 - COMMUNITY_CARD_CENTER_INDEX) * config.card_offset_spacing;
-    let community_card = match draw_card_with_fallback(game_state) {
+    let community_card = match draw_card(game_state) {
         Ok(c) => c,
         Err(e) => {
             error!("Critical: Failed to draw community card: {}", e);
