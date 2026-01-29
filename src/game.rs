@@ -224,7 +224,6 @@ pub enum PokerAction {
     Fold,
 }
 
-#[allow(clippy::cast_precision_loss)]
 fn evaluate_hand_rank_score(hand_rank: HandRank, primary_value: u8) -> f32 {
     let base_score = match hand_rank {
         HandRank::HighCard => 0.1,
@@ -237,7 +236,10 @@ fn evaluate_hand_rank_score(hand_rank: HandRank, primary_value: u8) -> f32 {
         HandRank::FourOfAKind => 0.8,
         HandRank::StraightFlush => 0.9,
     };
-    base_score + (f32::from(primary_value) / 13.0) * 0.1
+    // Safe conversion: primary_value is a card rank (2-14), well within f32 precision
+    #[allow(clippy::cast_precision_loss)]
+    let normalized = (f32::from(primary_value) / 13.0) * 0.1;
+    base_score + normalized
 }
 
 /// Evaluates hand strength as a value between 0.0 and 1.0
@@ -262,6 +264,8 @@ pub fn evaluate_current_hand_strength(game_state: &GameStateResource) -> f32 {
 
     if cards.len() < 5 {
         // Preflop: simple evaluation based on card ranks
+        // Safe: card ranks are 2-14, conversion to f32 won't lose precision
+        #[allow(clippy::cast_precision_loss)]
         let ranks: Vec<u8> = cards.iter().map(|c| c.rank as u8).collect();
         let mut score = 0.0;
         for &rank in &ranks {
@@ -277,7 +281,6 @@ pub fn evaluate_current_hand_strength(game_state: &GameStateResource) -> f32 {
 
 /// Chooses an action based on hand strength, position, and pot odds.
 /// Uses a more sophisticated strategy considering multiple factors.
-#[allow(clippy::cast_precision_loss)]
 pub fn choose_action_based_on_strength<'a>(
     actions: &'a [PokerAction],
     strength: f32,
@@ -290,6 +293,8 @@ pub fn choose_action_based_on_strength<'a>(
     let pot_size = game_state.pot + game_state.pot_remainder;
 
     // Calculate pot odds
+    // Precision loss acceptable: used for AI decision thresholds only
+    #[allow(clippy::cast_precision_loss)]
     let pot_odds = if to_call > 0 {
         (to_call as f32) / (pot_size as f32 + to_call as f32)
     } else {
@@ -560,21 +565,23 @@ pub fn draw_card(game_state: &mut GameStateResource) -> Result<Card, &'static st
     }
 }
 
-/// Distributes the pot to the winning player.
+/// Distributes the pot to the winning player and clears the pot.
 pub fn distribute_pot(game_state: &mut GameStateResource, winner: usize) {
     let total_pot = game_state.pot + game_state.pot_remainder;
     game_state.player_chips[winner] += total_pot;
     game_state.last_winner_message = if winner == 0 { "P1 wins" } else { "P2 wins" }.to_string();
+    game_state.pot = 0;
     game_state.pot_remainder = 0;
 }
 
-/// Splits the pot between both players in case of a tie.
+/// Splits the pot between both players in case of a tie and clears the pot.
 pub fn split_pot(game_state: &mut GameStateResource) {
     let total_pot = game_state.pot + game_state.pot_remainder;
     let split_amount = total_pot / 2;
     let remainder = total_pot % 2;
     game_state.player_chips[0] += split_amount;
     game_state.player_chips[1] += split_amount + remainder;
+    game_state.pot = 0;
     game_state.pot_remainder = 0;
     game_state.last_winner_message = "Split pot".to_string();
 }
@@ -600,6 +607,4 @@ pub fn process_showdown_result(game_state: &mut GameStateResource) {
             split_pot(game_state);
         }
     }
-    game_state.pot = 0;
-    game_state.pot_remainder = 0;
 }
