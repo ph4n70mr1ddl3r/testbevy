@@ -2,7 +2,7 @@ use crate::constants::MIN_CARDS_FOR_HAND_EVALUATION;
 use rand::{seq::SliceRandom, thread_rng};
 use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
-use std::fmt;
+use std::fmt::{self, Display};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Suit {
@@ -203,6 +203,19 @@ pub enum PokerRound {
     Showdown,
 }
 
+impl Display for PokerRound {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = match self {
+            PokerRound::PreFlop => "Pre-Flop",
+            PokerRound::Flop => "Flop",
+            PokerRound::Turn => "Turn",
+            PokerRound::River => "River",
+            PokerRound::Showdown => "Showdown",
+        };
+        write!(f, "{}", name)
+    }
+}
+
 /// Represents the ranking of a poker hand.
 /// The derived `Ord` implementation follows standard poker hand rankings:
 /// HighCard < Pair < TwoPair < ThreeOfAKind < Straight < Flush < FullHouse < FourOfAKind < StraightFlush
@@ -360,19 +373,21 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
         let flush_suit = suit_counts
             .iter()
             .find(|(_, &count)| count >= 5)
-            .map(|(suit, _)| *suit)
-            .unwrap_or(Suit::Hearts); // Fallback suit for flush evaluation
-        let flush_values: Vec<Rank> = cards_vec
-            .iter()
-            .filter(|c| c.suit == flush_suit)
-            .map(|c| c.rank)
-            .rev()
-            .collect();
-        return EvaluatedHand {
-            hand_rank: HandRank::Flush,
-            primary_values: flush_values,
-            kickers: Vec::new(),
-        };
+            .map(|(suit, _)| *suit);
+
+        if let Some(flush_suit) = flush_suit {
+            let flush_values: Vec<Rank> = cards_vec
+                .iter()
+                .filter(|c| c.suit == flush_suit)
+                .map(|c| c.rank)
+                .rev()
+                .collect();
+            return EvaluatedHand {
+                hand_rank: HandRank::Flush,
+                primary_values: flush_values,
+                kickers: Vec::new(),
+            };
+        }
     }
 
     if is_straight {

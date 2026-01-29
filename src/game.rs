@@ -136,17 +136,6 @@ impl Default for ColorPalette {
     }
 }
 
-/// Returns the display name for a poker round.
-pub const fn get_round_name(round: PokerRound) -> &'static str {
-    match round {
-        PokerRound::PreFlop => "Pre-Flop",
-        PokerRound::Flop => "Flop",
-        PokerRound::Turn => "Turn",
-        PokerRound::River => "River",
-        PokerRound::Showdown => "Showdown",
-    }
-}
-
 #[derive(Component)]
 pub struct CardEntity;
 

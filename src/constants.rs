@@ -25,6 +25,8 @@ pub const COMMUNITY_CARD_FONT_SIZE: f32 = 12.0;
 pub const PLAYER_LABEL_FONT_SIZE: f32 = 20.0;
 /// Font size for chip labels
 pub const CHIP_LABEL_FONT_SIZE: f32 = 18.0;
+/// Font size for hole card text (player's private cards)
+pub const HOLE_CARD_FONT_SIZE: f32 = 16.0;
 
 // Animation and timing constants
 /// Initial delay before betting actions begin (seconds)
