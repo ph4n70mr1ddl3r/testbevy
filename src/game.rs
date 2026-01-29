@@ -383,6 +383,7 @@ pub fn choose_action_based_on_strength<'a>(
 
 /// Returns all valid actions for the current player given the game state.
 pub fn get_valid_actions(game_state: &GameStateResource, config: &GameConfig) -> Vec<PokerAction> {
+    #![allow(clippy::unused_self)]
     let mut actions = Vec::new();
     let player_idx = game_state.current_player;
     let player_chips = game_state.player_chips[player_idx];
@@ -497,8 +498,9 @@ pub fn perform_validated_action(game_state: &mut GameStateResource, config: &Gam
             }
         }
         PokerAction::Call => {
-            let call_amount =
-                game_state.current_bet - game_state.player_bets[game_state.current_player];
+            let call_amount = game_state
+                .current_bet
+                .saturating_sub(game_state.player_bets[game_state.current_player]);
             if call_amount > 0 && game_state.player_chips[player_idx] >= call_amount {
                 place_bet(game_state, call_amount, false, 0);
                 game_state.last_action = format!("P{}: Call", player_idx + 1);

@@ -445,13 +445,13 @@ pub fn determine_winner(
     p2_hole: &[Card; 2],
     community_cards: &[Card; 5],
 ) -> i32 {
-    let player1_hand: Vec<Card> = [&p1_hole[0], &p1_hole[1]]
-        .into_iter()
+    let player1_hand: Vec<Card> = p1_hole
+        .iter()
         .chain(community_cards.iter())
         .cloned()
         .collect();
-    let player2_hand: Vec<Card> = [&p2_hole[0], &p2_hole[1]]
-        .into_iter()
+    let player2_hand: Vec<Card> = p2_hole
+        .iter()
         .chain(community_cards.iter())
         .cloned()
         .collect();
