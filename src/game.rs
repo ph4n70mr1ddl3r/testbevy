@@ -224,6 +224,15 @@ pub enum PokerAction {
     Fold,
 }
 
+/// Evaluates a hand rank and primary card value to produce a normalized score (0.0-1.0).
+/// Used by AI to compare hand strengths quantitatively.
+///
+/// # Score Calculation
+/// - Base score from hand rank (0.1-0.9)
+/// - Normalized primary value added as decimal (0.0-0.1)
+///
+/// # Precision Note
+/// Card ranks are 2-14, well within f32 precision. The conversion is safe.
 fn evaluate_hand_rank_score(hand_rank: HandRank, primary_value: u8) -> f32 {
     let base_score = match hand_rank {
         HandRank::HighCard => 0.1,
@@ -236,8 +245,7 @@ fn evaluate_hand_rank_score(hand_rank: HandRank, primary_value: u8) -> f32 {
         HandRank::FourOfAKind => 0.8,
         HandRank::StraightFlush => 0.9,
     };
-    // Safe conversion: primary_value is a card rank (2-14), well within f32 precision
-    #[allow(clippy::cast_precision_loss)]
+    // Safe: primary_value is a card rank (2-14), well within f32 precision
     let normalized = (f32::from(primary_value) / 13.0) * 0.1;
     base_score + normalized
 }
@@ -264,8 +272,7 @@ pub fn evaluate_current_hand_strength(game_state: &GameStateResource) -> f32 {
 
     if cards.len() < 5 {
         // Preflop: simple evaluation based on card ranks
-        // Safe: card ranks are 2-14, conversion to f32 won't lose precision
-        #[allow(clippy::cast_precision_loss)]
+        // Safe conversion: card ranks are 2-14, well within u8 range
         let ranks: Vec<u8> = cards.iter().map(|c| c.rank as u8).collect();
         let mut score = 0.0;
         for &rank in &ranks {
@@ -292,11 +299,10 @@ pub fn choose_action_based_on_strength<'a>(
     let to_call = current_bet.saturating_sub(player_bet);
     let pot_size = game_state.pot + game_state.pot_remainder;
 
-    // Calculate pot odds
-    // Precision loss acceptable: used for AI decision thresholds only
-    #[allow(clippy::cast_precision_loss)]
+    // Calculate pot odds: ratio of call amount to total pot after call
+    // Used for AI decision making, minor precision loss is acceptable
     let pot_odds = if to_call > 0 {
-        (to_call as f32) / (pot_size as f32 + to_call as f32)
+        f32::from(to_call) / (f32::from(pot_size) + f32::from(to_call))
     } else {
         0.0
     };
@@ -327,63 +333,52 @@ pub fn choose_action_based_on_strength<'a>(
     {
         // Weak hand or bad pot odds: fold if possible
         if actions.contains(&PokerAction::Fold) && to_call > 0 {
-            return actions
-                .iter()
-                .find(|a| matches!(a, PokerAction::Fold))
-                .expect("Fold action should exist in actions list");
+            if let Some(fold_action) = actions.iter().find(|a| matches!(a, PokerAction::Fold)) {
+                return fold_action;
+            }
         }
     }
 
     if final_strength >= AI_STRENGTH_RAISE_THRESHOLD {
         // Very strong hand: raise or bet
         if actions.contains(&PokerAction::Raise) {
-            return actions
-                .iter()
-                .find(|a| matches!(a, PokerAction::Raise))
-                .expect("Raise action should exist in actions list");
+            if let Some(raise_action) = actions.iter().find(|a| matches!(a, PokerAction::Raise)) {
+                return raise_action;
+            }
         } else if actions.contains(&PokerAction::Bet) {
-            return actions
-                .iter()
-                .find(|a| matches!(a, PokerAction::Bet))
-                .expect("Bet action should exist in actions list");
+            if let Some(bet_action) = actions.iter().find(|a| matches!(a, PokerAction::Bet)) {
+                return bet_action;
+            }
         }
     } else if final_strength >= AI_STRENGTH_CALL_THRESHOLD {
         // Medium-strong hand: call or check
         if actions.contains(&PokerAction::Check) {
-            return actions
-                .iter()
-                .find(|a| matches!(a, PokerAction::Check))
-                .expect("Check action should exist in actions list");
+            if let Some(check_action) = actions.iter().find(|a| matches!(a, PokerAction::Check)) {
+                return check_action;
+            }
         } else if actions.contains(&PokerAction::Call) && pot_odds < AI_POT_ODDS_CALL_THRESHOLD {
-            return actions
-                .iter()
-                .find(|a| matches!(a, PokerAction::Call))
-                .expect("Call action should exist in actions list");
+            if let Some(call_action) = actions.iter().find(|a| matches!(a, PokerAction::Call)) {
+                return call_action;
+            }
         }
     } else if final_strength >= 0.3 {
         // Medium hand: check or call with good pot odds
         if actions.contains(&PokerAction::Check) {
-            return actions
-                .iter()
-                .find(|a| matches!(a, PokerAction::Check))
-                .expect("Check action should exist in actions list");
+            if let Some(check_action) = actions.iter().find(|a| matches!(a, PokerAction::Check)) {
+                return check_action;
+            }
         } else if actions.contains(&PokerAction::Call) && pot_odds < AI_POT_ODDS_GOOD_THRESHOLD {
-            return actions
-                .iter()
-                .find(|a| matches!(a, PokerAction::Call))
-                .expect("Call action should exist in actions list");
+            if let Some(call_action) = actions.iter().find(|a| matches!(a, PokerAction::Call)) {
+                return call_action;
+            }
         }
     }
 
     // Default: check if available, otherwise first available action
-    if actions.contains(&PokerAction::Check) {
-        actions
-            .iter()
-            .find(|a| matches!(a, PokerAction::Check))
-            .expect("Check action should exist in actions list")
-    } else {
-        &actions[0]
-    }
+    actions
+        .iter()
+        .find(|a| matches!(a, PokerAction::Check))
+        .unwrap_or(&actions[0])
 }
 
 /// Returns all valid actions for the current player given the game state.

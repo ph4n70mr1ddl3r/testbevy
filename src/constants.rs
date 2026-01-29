@@ -104,20 +104,28 @@ pub const MIN_CARDS_FOR_HAND_EVALUATION: usize = 5;
 
 // AI decision thresholds
 /// Hand strength below which AI will fold (unless pot odds are good)
+/// Range: 0.0-1.0, where higher values mean stronger hands
 pub const AI_STRENGTH_FOLD_THRESHOLD: f32 = 0.25;
 /// Minimum hand strength for AI to call
+/// Range: 0.0-1.0, should be higher than FOLD_THRESHOLD
 pub const AI_STRENGTH_CALL_THRESHOLD: f32 = 0.5;
 /// Minimum hand strength for AI to raise/bet
+/// Range: 0.0-1.0, should be higher than CALL_THRESHOLD
 pub const AI_STRENGTH_RAISE_THRESHOLD: f32 = 0.7;
-/// Pot odds threshold considered unfavorable
+/// Pot odds threshold considered unfavorable (fold if strength < 0.4)
+/// Pot odds = call_amount / (pot + call_amount)
 pub const AI_POT_ODDS_BAD_THRESHOLD: f32 = 0.3;
-/// Maximum pot odds for calling with medium strength
+/// Maximum pot odds for calling with medium strength (strength >= 0.5)
 pub const AI_POT_ODDS_CALL_THRESHOLD: f32 = 0.25;
-/// Pot odds threshold considered favorable
+/// Pot odds threshold considered favorable for calling with marginal hands
+/// Used when hand strength is between 0.3 and CALL_THRESHOLD
 pub const AI_POT_ODDS_GOOD_THRESHOLD: f32 = 0.2;
-/// Bonus to hand strength when in dealer position
+/// Bonus to hand strength when in dealer position (acts last)
+/// Applied to all betting rounds
 pub const AI_POSITION_BONUS: f32 = 0.1;
-/// Bonus to hand strength preflop when dealer
+/// Bonus to hand strength preflop when in dealer position
+/// Additional to POSITION_BONUS during preflop only
 pub const AI_PREFLOP_DEALER_BONUS: f32 = 0.05;
-/// Penalty to hand strength preflop when not dealer
+/// Penalty to hand strength preflop when not in dealer position
+/// Applied during preflop only to discourage early position play
 pub const AI_PREFLOP_NON_DEALER_PENALTY: f32 = -0.05;

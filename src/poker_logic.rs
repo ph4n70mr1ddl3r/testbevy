@@ -361,7 +361,7 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
             .iter()
             .find(|(_, &count)| count >= 5)
             .map(|(suit, _)| *suit)
-            .expect("Flush suit should exist when is_flush is true");
+            .unwrap_or(Suit::Hearts); // Fallback suit for flush evaluation
         let flush_values: Vec<Rank> = cards_vec
             .iter()
             .filter(|c| c.suit == flush_suit)
