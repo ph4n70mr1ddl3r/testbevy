@@ -107,7 +107,7 @@ pub fn start_hand_system(
         game_state.winner = None;
         game_state.last_winner_message = "".to_string();
         game_state.needs_hand_restart = false;
-        start_hand(&mut commands, &mut game_state, &config, &colors, &time);
+        start_hand(&mut commands, &mut game_state, &config, &colors, time);
     }
 }
 

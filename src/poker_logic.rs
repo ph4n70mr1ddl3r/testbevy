@@ -591,7 +591,7 @@ mod tests {
 
     #[test]
     fn test_straight_flush() {
-        let hand = vec![
+        let hand = [
             card(Rank::Seven, Suit::Hearts),
             card(Rank::Three, Suit::Hearts),
             card(Rank::Four, Suit::Hearts),
@@ -607,7 +607,7 @@ mod tests {
 
     #[test]
     fn test_wheel_straight_flush() {
-        let hand = vec![
+        let hand = [
             card(Rank::Ace, Suit::Hearts),
             card(Rank::Two, Suit::Spades),
             card(Rank::Three, Suit::Hearts),
@@ -668,7 +668,7 @@ mod tests {
 
     #[test]
     fn test_royal_flush() {
-        let hand = vec![
+        let hand = [
             card(Rank::Ace, Suit::Hearts),
             card(Rank::King, Suit::Hearts),
             card(Rank::Queen, Suit::Hearts),
@@ -684,7 +684,7 @@ mod tests {
 
     #[test]
     fn test_wheel_straight() {
-        let hand = vec![
+        let hand = [
             card(Rank::Ace, Suit::Hearts),
             card(Rank::Two, Suit::Spades),
             card(Rank::Three, Suit::Hearts),
@@ -700,7 +700,7 @@ mod tests {
 
     #[test]
     fn test_broadway_straight() {
-        let hand = vec![
+        let hand = [
             card(Rank::Ace, Suit::Hearts),
             card(Rank::King, Suit::Spades),
             card(Rank::Queen, Suit::Hearts),
@@ -716,7 +716,7 @@ mod tests {
 
     #[test]
     fn test_straight_detects_highest() {
-        let hand = vec![
+        let hand = [
             card(Rank::Two, Suit::Hearts),
             card(Rank::Three, Suit::Spades),
             card(Rank::Four, Suit::Hearts),
@@ -905,7 +905,7 @@ mod tests {
 
     #[test]
     fn test_ace_low_straight() {
-        let hand = vec![
+        let hand = [
             card(Rank::Ace, Suit::Hearts),
             card(Rank::Two, Suit::Spades),
             card(Rank::Three, Suit::Diamonds),
@@ -921,7 +921,7 @@ mod tests {
 
     #[test]
     fn test_straight_with_gap() {
-        let hand = vec![
+        let hand = [
             card(Rank::Ace, Suit::Hearts),
             card(Rank::King, Suit::Spades),
             card(Rank::Queen, Suit::Diamonds),
@@ -1086,7 +1086,7 @@ mod tests {
 
     #[test]
     fn test_straight_flush_royal() {
-        let hand = vec![
+        let hand = [
             card(Rank::Ace, Suit::Spades),
             card(Rank::King, Suit::Spades),
             card(Rank::Queen, Suit::Spades),
@@ -1168,7 +1168,7 @@ mod tests {
 
     #[test]
     fn test_straight_flush_low_end() {
-        let hand = vec![
+        let hand = [
             card(Rank::Two, Suit::Hearts),
             card(Rank::Three, Suit::Hearts),
             card(Rank::Four, Suit::Hearts),
@@ -1218,7 +1218,7 @@ mod tests {
 
     #[test]
     fn test_straight_with_duplicates() {
-        let hand = vec![
+        let hand = [
             card(Rank::Six, Suit::Hearts),
             card(Rank::Six, Suit::Spades),
             card(Rank::Seven, Suit::Hearts),
@@ -1234,7 +1234,7 @@ mod tests {
 
     #[test]
     fn test_no_straight_with_gap() {
-        let hand = vec![
+        let hand = [
             card(Rank::Ace, Suit::Hearts),
             card(Rank::King, Suit::Spades),
             card(Rank::Queen, Suit::Diamonds),
@@ -1249,7 +1249,7 @@ mod tests {
 
     #[test]
     fn test_straight_6_high() {
-        let hand = vec![
+        let hand = [
             card(Rank::Two, Suit::Hearts),
             card(Rank::Three, Suit::Spades),
             card(Rank::Four, Suit::Diamonds),

@@ -224,6 +224,7 @@ pub enum PokerAction {
     Fold,
 }
 
+#[allow(clippy::cast_precision_loss)]
 fn evaluate_hand_rank_score(hand_rank: HandRank, primary_value: u8) -> f32 {
     let base_score = match hand_rank {
         HandRank::HighCard => 0.1,
@@ -426,11 +427,9 @@ pub fn place_bet(
 
     let available_chips = game_state.player_chips[player_idx];
     let actual_amount = amount.min(available_chips);
-    game_state.player_chips[player_idx] =
-        game_state.player_chips[player_idx].saturating_sub(actual_amount);
-    game_state.player_bets[player_idx] =
-        game_state.player_bets[player_idx].saturating_add(actual_amount);
-    game_state.pot = game_state.pot.saturating_add(actual_amount);
+    game_state.player_chips[player_idx] -= actual_amount;
+    game_state.player_bets[player_idx] += actual_amount;
+    game_state.pot += actual_amount;
 
     if is_raise {
         game_state.current_bet = new_current_bet;
@@ -528,10 +527,8 @@ pub fn perform_validated_action(game_state: &mut GameStateResource, config: &Gam
         PokerAction::Fold => {
             let winner = (game_state.current_player + 1) % 2;
             game_state.winner = Some(winner);
-            game_state.player_chips[winner] =
-                game_state.player_chips[winner].saturating_add(game_state.pot);
-            game_state.player_chips[winner] =
-                game_state.player_chips[winner].saturating_add(game_state.pot_remainder);
+            let total_pot = game_state.pot + game_state.pot_remainder;
+            game_state.player_chips[winner] += total_pot;
             game_state.last_winner_message = format!(
                 "P{} folds - P{} wins",
                 game_state.current_player + 1,
@@ -564,7 +561,7 @@ pub fn draw_card(game_state: &mut GameStateResource) -> Result<Card, &'static st
 /// Distributes the pot to the winning player.
 pub fn distribute_pot(game_state: &mut GameStateResource, winner: usize) {
     let total_pot = game_state.pot + game_state.pot_remainder;
-    game_state.player_chips[winner] = game_state.player_chips[winner].saturating_add(total_pot);
+    game_state.player_chips[winner] += total_pot;
     game_state.last_winner_message = if winner == 0 { "P1 wins" } else { "P2 wins" }.to_string();
     game_state.pot_remainder = 0;
 }
@@ -574,9 +571,8 @@ pub fn split_pot(game_state: &mut GameStateResource) {
     let total_pot = game_state.pot + game_state.pot_remainder;
     let split_amount = total_pot / 2;
     let remainder = total_pot % 2;
-    game_state.player_chips[0] = game_state.player_chips[0].saturating_add(split_amount);
-    game_state.player_chips[1] =
-        game_state.player_chips[1].saturating_add(split_amount + remainder);
+    game_state.player_chips[0] += split_amount;
+    game_state.player_chips[1] += split_amount + remainder;
     game_state.pot_remainder = 0;
     game_state.last_winner_message = "Split pot".to_string();
 }
