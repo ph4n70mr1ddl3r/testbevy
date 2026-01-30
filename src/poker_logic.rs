@@ -189,7 +189,13 @@ fn find_straight_high(ranks: &HashSet<Rank>) -> Option<Rank> {
 
 impl Default for Deck {
     fn default() -> Self {
-        Self::new()
+        let mut cards = Vec::with_capacity(52);
+        for &suit in &SUITS {
+            for &rank in &RANKS {
+                cards.push(Card::new(rank, suit));
+            }
+        }
+        Deck { cards }
     }
 }
 
