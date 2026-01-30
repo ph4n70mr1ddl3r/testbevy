@@ -1,5 +1,5 @@
 use crate::constants::ANIMATION_COMPLETE_DELAY;
-use crate::game::DealAnimation;
+use crate::game::{DealAnimation, GameConfig};
 use bevy::prelude::*;
 
 /// Updates all card deal animations with easing.

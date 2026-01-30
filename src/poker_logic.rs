@@ -391,7 +391,9 @@ pub fn evaluate_hand(cards: &[Card]) -> EvaluatedHand {
     if is_straight {
         return EvaluatedHand {
             hand_rank: HandRank::Straight,
-            primary_values: vec![straight_high.unwrap()],
+            primary_values: vec![
+                straight_high.expect("straight_high should be Some when is_straight is true")
+            ],
             kickers: Vec::new(),
         };
     }
