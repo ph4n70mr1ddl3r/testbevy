@@ -342,7 +342,7 @@ pub fn spawn_ui(
     commands.spawn((
         Text2dBundle {
             text: Text::from_section(
-                game_state.last_action.clone(),
+                &game_state.last_action,
                 TextStyle {
                     font_size: ACTION_FONT_SIZE,
                     color: Color::WHITE,
@@ -402,7 +402,7 @@ pub fn spawn_all_community_cards(
     colors: &ColorPalette,
     animation_start_time: f32,
 ) {
-    for i in 0..5 {
+    for i in 0..MAX_COMMUNITY_CARDS {
         spawn_community_card(
             commands,
             game_state,

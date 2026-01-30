@@ -1,3 +1,4 @@
+use crate::constants::ANIMATION_COMPLETE_DELAY;
 use crate::game::DealAnimation;
 use bevy::prelude::*;
 
@@ -18,7 +19,7 @@ pub fn update_animations(
             transform.translation = anim.start_pos.lerp(anim.target_pos, eased);
 
             if t >= 1.0 {
-                anim.delay = -1.0;
+                anim.delay = ANIMATION_COMPLETE_DELAY;
             }
         }
     }

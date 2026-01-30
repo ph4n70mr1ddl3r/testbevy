@@ -31,7 +31,7 @@ impl Default for UIPositioning {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct AnimationConfig {
     pub card_deal_delay: f32,
     pub deal_duration: f32,
@@ -271,7 +271,12 @@ pub fn evaluate_current_hand_strength(game_state: &GameStateResource) -> f32 {
     } else {
         // Postflop: evaluate hand
         let evaluated = evaluate_hand(&cards);
-        evaluate_hand_rank_score(evaluated.hand_rank, evaluated.primary_values[0] as u8)
+        let primary_value = evaluated
+            .primary_values
+            .first()
+            .copied()
+            .unwrap_or(Rank::Two);
+        evaluate_hand_rank_score(evaluated.hand_rank, primary_value as u8)
     }
 }
 
@@ -281,7 +286,6 @@ pub fn choose_action_based_on_strength<'a>(
     actions: &'a [PokerAction],
     strength: f32,
     game_state: &GameStateResource,
-    _config: &GameConfig,
 ) -> &'a PokerAction {
     let current_bet = game_state.current_bet;
     let player_bet = game_state.player_bets[game_state.current_player];
@@ -465,7 +469,7 @@ pub fn perform_validated_action(game_state: &mut GameStateResource, config: &Gam
     }
 
     let hand_strength = evaluate_current_hand_strength(game_state);
-    let action = choose_action_based_on_strength(&actions, hand_strength, game_state, config);
+    let action = choose_action_based_on_strength(&actions, hand_strength, game_state);
 
     let player_idx = game_state.current_player;
     match action {

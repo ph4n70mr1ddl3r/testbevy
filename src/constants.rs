@@ -99,6 +99,10 @@ pub const RIVER_CARD_COUNT: usize = 5;
 pub const PLAYER_CARD_CENTER_OFFSET: f32 = 0.5;
 /// Center index for community cards (0-4, centered on 2)
 pub const COMMUNITY_CARD_CENTER_INDEX: f32 = 2.0;
+/// Maximum number of community cards in Texas Hold'em
+pub const MAX_COMMUNITY_CARDS: usize = 5;
+/// Delay value indicating animation is complete
+pub const ANIMATION_COMPLETE_DELAY: f32 = -1.0;
 
 // Card evaluation constants
 /// Minimum cards required for hand evaluation (5-card poker hand)
