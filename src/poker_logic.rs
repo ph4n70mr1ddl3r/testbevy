@@ -166,10 +166,7 @@ fn find_straight_high(ranks: &HashSet<Rank>) -> Option<Rank> {
 
     let mut rank_bits: u16 = 0;
     for &rank in ranks {
-        let idx = rank as u8;
-        if (2..=14).contains(&idx) {
-            rank_bits |= 1 << idx;
-        }
+        rank_bits |= 1 << (rank as u8);
     }
 
     let has_wheel = (rank_bits & WHEEL_BITS) == WHEEL_BITS;
@@ -189,13 +186,7 @@ fn find_straight_high(ranks: &HashSet<Rank>) -> Option<Rank> {
 
 impl Default for Deck {
     fn default() -> Self {
-        let mut cards = Vec::with_capacity(52);
-        for &suit in &SUITS {
-            for &rank in &RANKS {
-                cards.push(Card::new(rank, suit));
-            }
-        }
-        Deck { cards }
+        Self::new()
     }
 }
 
