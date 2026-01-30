@@ -1,4 +1,4 @@
-use crate::game::{DealAnimation, GameConfig};
+use crate::game::DealAnimation;
 use bevy::prelude::*;
 
 /// Updates all card deal animations with easing.

@@ -209,7 +209,7 @@ pub enum PokerRound {
     Showdown,
 }
 
-impl Display for PokerRound {
+impl fmt::Display for PokerRound {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = match self {
             PokerRound::PreFlop => "Pre-Flop",
