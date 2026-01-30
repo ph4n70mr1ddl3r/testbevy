@@ -324,8 +324,7 @@ pub fn choose_action_based_on_strength<'a>(
     if final_strength < AI_STRENGTH_FOLD_THRESHOLD
         || (final_strength < 0.4 && pot_odds > AI_POT_ODDS_BAD_THRESHOLD)
     {
-        // Weak hand or bad pot odds: fold if possible
-        if actions.contains(&PokerAction::Fold) && to_call > 0 {
+        if to_call > 0 {
             if let Some(fold_action) = actions.iter().find(|a| matches!(a, PokerAction::Fold)) {
                 return fold_action;
             }
@@ -333,45 +332,33 @@ pub fn choose_action_based_on_strength<'a>(
     }
 
     if final_strength >= AI_STRENGTH_RAISE_THRESHOLD {
-        // Very strong hand: raise or bet
-        if actions.contains(&PokerAction::Raise) {
-            if let Some(raise_action) = actions.iter().find(|a| matches!(a, PokerAction::Raise)) {
-                return raise_action;
-            }
-        } else if actions.contains(&PokerAction::Bet) {
-            if let Some(bet_action) = actions.iter().find(|a| matches!(a, PokerAction::Bet)) {
-                return bet_action;
-            }
+        if let Some(raise_action) = actions.iter().find(|a| matches!(a, PokerAction::Raise)) {
+            return raise_action;
+        }
+        if let Some(bet_action) = actions.iter().find(|a| matches!(a, PokerAction::Bet)) {
+            return bet_action;
         }
     } else if final_strength >= AI_STRENGTH_CALL_THRESHOLD {
-        // Medium-strong hand: call or check
-        if actions.contains(&PokerAction::Check) {
-            if let Some(check_action) = actions.iter().find(|a| matches!(a, PokerAction::Check)) {
-                return check_action;
-            }
-        } else if actions.contains(&PokerAction::Call) && pot_odds < AI_POT_ODDS_CALL_THRESHOLD {
+        if let Some(check_action) = actions.iter().find(|a| matches!(a, PokerAction::Check)) {
+            return check_action;
+        }
+        if pot_odds < AI_POT_ODDS_CALL_THRESHOLD {
             if let Some(call_action) = actions.iter().find(|a| matches!(a, PokerAction::Call)) {
                 return call_action;
             }
         }
     } else if final_strength >= 0.3 {
-        // Medium hand: check or call with good pot odds
-        if actions.contains(&PokerAction::Check) {
-            if let Some(check_action) = actions.iter().find(|a| matches!(a, PokerAction::Check)) {
-                return check_action;
-            }
-        } else if actions.contains(&PokerAction::Call) && pot_odds < AI_POT_ODDS_GOOD_THRESHOLD {
+        if let Some(check_action) = actions.iter().find(|a| matches!(a, PokerAction::Check)) {
+            return check_action;
+        }
+        if pot_odds < AI_POT_ODDS_GOOD_THRESHOLD {
             if let Some(call_action) = actions.iter().find(|a| matches!(a, PokerAction::Call)) {
                 return call_action;
             }
         }
     }
 
-    // Default: check if available, otherwise first available action
-    actions
-        .iter()
-        .find(|a| matches!(a, PokerAction::Check))
-        .unwrap_or(&actions[0])
+    actions.first().unwrap_or(&PokerAction::Check)
 }
 
 /// Returns all valid actions for the current player given the game state.

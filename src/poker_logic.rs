@@ -184,12 +184,6 @@ fn find_straight_high(ranks: &HashSet<Rank>) -> Option<Rank> {
     }
 }
 
-impl Default for Deck {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum PokerRound {
     #[default]

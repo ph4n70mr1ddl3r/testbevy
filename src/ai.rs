@@ -63,7 +63,7 @@ pub fn start_hand(
     game_state.player_bets = [0; PLAYER_COUNT];
     game_state.current_bet = 0;
     game_state.winner = None;
-    game_state.last_winner_message = "".to_string();
+    game_state.last_winner_message = String::new();
 
     if game_state.deck.cards_remaining() < config.min_cards_for_reshuffle {
         game_state.deck = Deck::new();
@@ -104,7 +104,7 @@ pub fn start_hand_system(
         game_state.showdown_timer = 0.0;
         game_state.action_tick = 0;
         game_state.winner = None;
-        game_state.last_winner_message = "".to_string();
+        game_state.last_winner_message = String::new();
         game_state.needs_hand_restart = false;
         start_hand(&mut commands, &mut game_state, &config, &colors, time);
     }
